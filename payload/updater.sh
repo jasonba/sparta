@@ -22,8 +22,8 @@ SPARTA_HASH_URL="https://github.com/jasonba/sparta/raw/master/sparta.hash" 	# Th
 SPARTA_URL="https://github.com/jasonba/sparta/raw/master/sparta.tar.gz" 	# The URL of the SPARTA tarball
 SPARTA_FILE="/tmp/sparta.tar.gz"						# Local copy of the tarball
 
-SPARTA_UPDATER_URL="https://github.com/jasonba/sparta/raw/master/auto-updater.sh"   # The program that performs the update
-SPARTA_UPDATER="/tmp/auto-updater.sh"						# Local copy of the updater script
+SPARTA_UPDATER_URL="https://github.com/jasonba/sparta/raw/master/auto-installer.sh"   # The program that performs the update
+SPARTA_UPDATER="/tmp/auto-installer.sh"						# Local copy of the updater script
 
 # 
 # Setup some binaries from known locations
