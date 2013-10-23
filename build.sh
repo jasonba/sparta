@@ -2,7 +2,7 @@
 
 printf "Building ... "
 SPARTA_TARBALL=/var/tmp/sparta.tar
-tar cvf $SPARTA_TARBALL README installer.sh payload
+tar cvf $SPARTA_TARBALL README installer.sh auto-installer.sh payload
 gzip $SPARTA_TARBALL
 cp ${SPARTA_TARBALL}.gz /volumes/alices/scripts
 
