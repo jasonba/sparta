@@ -1,0 +1,16 @@
+#
+# SPARTA URL list for various dtrace scripts
+#
+
+#
+# Kirill's scripts
+#
+WEB_SERVER="raw.github.com"
+WEB_SERVER_URL="https://${WEB_SERVER}"
+KMEM_REAP_URL="${WEB_SERVER_URL}/kdavyd/dtrace/master/kmem_reap_100ms.d"
+TXG_MONITOR_URL="${WEB_SERVER_URL}/kdavyd/dtrace/master/txg_monitor.v3.d"
+NFS_IO_URL="${WEB_SERVER_URL}/kdavyd/dtrace/master/nfsio.d"
+
+#
+# Richard Elling's scripts
+#

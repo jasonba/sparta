@@ -1,0 +1,75 @@
+README file for SPARTA (System Performance And Reporting Tool Analyser)
+=======================================================================
+
+This package contains a number of scripts and utilities that need to
+be installed in order to gather performance data from a NexentaStor
+appliance.
+
+
+Installation
+------------
+In the directory where this package has been unpacked, run the
+installer.sh script to install.  This will create a /perflogs directory
+and copy the scripts and utilities to that directory.  If there is
+insufficient space in the syspool you will not be able to continue
+(at the time of writing this is 1GB).
+
+# ./installer.sh
+
+Once installed you'll need to invoke the /perflogs/scripts/sparta.sh
+script to start collecting data.
+
+
+Running
+-------
+The sparta.sh script takes the following arguments but is typically
+invoked using 'sparta.sh -c <command>' where the command may be one
+of the following:
+
+   sparta.sh -c start	 : Starts the data collection
+   sparta.sh -c stop 	 : Stops any active dtrace scripts
+   sparta.sh -c status	 : Displays which dtrace scripts are running
+   sparta.sh -c tarball	 : Generates a tarball of /perflogs (can be quite LARGE)
+   sparta.sh -c version  : Displays the version of SPARTA
+
+There are several optional switches that can be supplied to enable
+NFS, CIFS or iSCSI monitoring, thus:
+
+   sparta.sh -N	-c start : Enable NFS scripts
+   sparta.sh -C -c start : Enable CIFS scripts
+   sparta.sh -I -c start : Enable iSCSI scripts
+        
+If you don't specify a command using the -c switch, then nothing will
+happen, thus it's imperitive a command be given. 
+
+[ It also accepts a -h | -help | -? switch to dump out a help page ]
+
+
+The script runs through numerous dtrace scripts and utilities, collecting
+data as it progresses and outputing to the screen the status of the
+collection.
+
+You may also monitor the sparta.log file in the /perflogs directory which
+contains slightly more detail.
+
+Ideally the script should be run once when the appliance is not
+experiencing performance issues, such that a baseline can be established.
+If a baseline is to be established, collect between 30 - 60 minutes of
+dtrace data before stopping the script.
+
+When a performance issue is experienced, run the script again to collect
+data and then discuss the results with a Nexenta Support Engineer.
+
+
+Post Run
+--------
+After the script has been run, you'll need upload the data to the Nexenta
+FTP server.  This information is displayed after a successful run.
+
+For example:
+
+A snapshot of the currently collected data has been collected.
+Please upload /tmp/nexenta_perf_data-2013-02-06_11:58:05.tar.gz to ftp.nexenta.com:/upload/<CASE_REF>
+
+where <CASE_REF> should be substituted for the case reference number
+of the performance issue is being investigated.
