@@ -4,12 +4,13 @@
 # Program       : updater.sh
 # Author        : Jason.Banham@Nexenta.COM
 # Date          : 2013-10-03
-# Version       : 0.01
+# Version       : 0.02
 # Usage         : updater.sh
 # Purpose       : Concept code to see if we can perform an auto update for SPARTA
 # Legal         : Copyright 2013, Nexenta Systems, Inc. 
 #
 # History       : 0.01 - Initial version
+#		  0.02 - Correct logic error for when we download the sparta hash file
 #
 
 #
@@ -76,10 +77,8 @@ function pull_me
 
     wget $WGET_OPTS $DOWNLOAD_URL -O ${DOWNLOAD_FILE}
     if [ $? -ne 0 ]; then
-	$ECHO "failed."
 	return 1
     else
-        $ECHO "success"
 	return 0
     fi
 }
@@ -103,21 +102,18 @@ function bootstrap
 	    return 2
 	fi
     fi
-    $ECHO "Checking SPARTA version online ... \c"
+    pull_me $SPARTA_HASH_URL /tmp/$SPARTA_HASH
+    if [ $? -ne 0 ]; then
+        $ECHO "Unable to obtain SPARTA hash"
+        return 2
+    fi
     if [ ! -r $SPARTA_ETC/$SPARTA_HASH ]; then
-	pull_me $SPARTA_HASH_URL /tmp/$SPARTA_HASH
-        if [ $? -ne 0 ]; then
-	    $ECHO "Unable to obtain SPARTA hash"
-	    return 2
-	fi
         $CP /tmp/$SPARTA_HASH $SPARTA_ETC
     else 
         $DIFF $SPARTA_ETC/$SPARTA_HASH /tmp/$SPARTA_HASH > /dev/null 2>&1 
         if [ $? -ne 0 ]; then
-	    $ECHO "success"
             return 1
         else
-   	    $ECHO "failed"
 	    return 0
         fi
     fi
@@ -127,10 +123,12 @@ function bootstrap
 #
 # Check to see if there's a newer version of SPARTA out there
 #
+
+$ECHO "Checking SPARTA version online"
 bootstrap
 
 if [ $? -eq 1 ]; then
-    printf "Attempting to download current version of SPARTA ... "
+    $ECHO "Attempting to download current version of SPARTA"
 
     pull_me $SPARTA_URL $SPARTA_FILE
     if [ $? -eq 0 ]; then
@@ -138,16 +136,16 @@ if [ $? -eq 1 ]; then
 	if [ $? -eq 0 ]; then
 	    $ECHO "SPARTA tarball and auto-update script successfully downloaded"
 	else
-	    $ECHO "unable to download the auto-updater"
+	    $ECHO "Unable to download the auto-updater"
 	    exit 1
 	fi
     else
-	$ECHO "unable to download the current SPARTA tarball"
+	$ECHO "Unable to download the current SPARTA tarball"
 	exit 1
     fi
 
 else
-    printf "most recent version of SPARTA already installed\n"
+    $ECHO "Most recent version of SPARTA already installed"
 fi
 
 exit 0
