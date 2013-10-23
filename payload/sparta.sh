@@ -478,7 +478,7 @@ if [ $? -eq 1 ]; then
 	    # Looks like we've successfully pulled down the new SPARTA tarball and installer
 	    # so lets invoke the auto-install utility to get upto data binaries
 	    #
-            exec $SPARTA_UPDATER
+            exec $SPARTA_UPDATER /tmp/$SPARTA_HASH
         else
             $ECHO "Unable to download the auto-updater"
         fi

@@ -30,11 +30,11 @@ CAT=/usr/bin/cat
 CD=/usr/bin/cd
 CHMOD=/usr/sun/bin/chmod
 CHOWN=/usr/bin/chown
-COPY=/usr/bin/cp
+COPY=/usr/sun/bin/echo
 SED=/usr/bin/sed
 TAR=/usr/sbin/tar
 TAR_OPTS="zxf"
-TEMP_DIR=/tmp
+TEMP_DIR=/tmp/sparta.auto
 TR=/usr/bin/tr
 ZFS=/usr/sbin/zfs
 ZPOOL=/usr/sbin/zpool
@@ -53,7 +53,7 @@ SPARTA_TEMPLATE=$LOG_CONFIG/sparta.config.template
 #
 # Scripts and files to install
 #
-SCRIPTS="auto-installer.sh arcstat.pl arc_adjust.v2.d arc_evict.d cifssvrtop dnlc_lookups.d iscsisvrtop kmem_reap_100ms.d large_delete.d txg_monitor.v3.d hotkernel.priv lockstat_sparta.sh metaslab.sh nfsio.d nfssrvutil.d nfssvrtop nfsrwtime.d sparta.sh zil_commit_time.d zil_stat.d"
+SCRIPTS="arcstat.pl arc_adjust.v2.d arc_evict.d cifssvrtop dnlc_lookups.d iscsisvrtop kmem_reap_100ms.d large_delete.d txg_monitor.v3.d hotkernel.priv lockstat_sparta.sh metaslab.sh nfsio.d nfssrvutil.d nfssvrtop nfsrwtime.d sparta.sh zil_commit_time.d zil_stat.d"
 CONFIG_FILES="sparta.config"
 README="README"
 
@@ -61,15 +61,20 @@ README="README"
 # 
 # Sanity checks
 #
-if [ "x$1" == "x" ]; then
-    $ECHO "No tarball supplied, must exit"
+if [ $# -lt 2 ]; then
+    $ECHO "Missing tarball and sparta hash file"
     exit 1
 else
     TARBALL="$1"
+    HASH_FILE="$2"
 fi
 
 if [ ! -r $TARBALL ]; then
     $ECHO "Unable to read $TARBALL"
+    exit 1
+fi
+if [ ! -r $HASH_FILE ]; then
+    $ECHO "Unable to read $HASH_FILE"
     exit 1
 fi
 
@@ -108,7 +113,10 @@ $CHOWN root $LOG_DIR
 #
 # Unpack SPARTA tarball
 #
-$CD $TEMP_DIR
+mkdir $TEMP_DIR > /dev/null 2>&1
+cd $TEMP_DIR
+pwd
+ls
 $TAR $TAR_OPTS $TARBALL > /dev/null 2>&1
 if [ $? -ne 0 ]; then
     $ECHO "tarball extraction failed"
@@ -151,6 +159,9 @@ do
     fi
 done
 
-$ECHO "done"
+$COPY $HASH_FILE $LOG_CONFIG/sparta.hash
 
-exit 0
+$ECHO "done"
+$ECHO "Restarting SPARTA with the new version"
+
+exec $LOG_SCRIPTS/sparta.sh -c start
