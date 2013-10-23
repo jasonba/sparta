@@ -115,8 +115,6 @@ $CHOWN root $LOG_DIR
 #
 mkdir $TEMP_DIR > /dev/null 2>&1
 cd $TEMP_DIR
-pwd
-ls
 $TAR $TAR_OPTS $TARBALL > /dev/null 2>&1
 if [ $? -ne 0 ]; then
     $ECHO "tarball extraction failed"
