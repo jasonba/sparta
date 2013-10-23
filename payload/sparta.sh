@@ -388,7 +388,7 @@ function generate_tarball
 #
 subcommand="usage"
 
-while getopts ChINvp:c:? argopt
+while getopts ChINu:vp:c:? argopt
 do
         case $argopt in
         C)      # Enable CIFS scripts
@@ -408,10 +408,11 @@ do
 
         p)      ZPOOL_NAME=$OPTARG
                 ;;
+	u)	UPDATE_OPT=$OPTARG
+		;;
         v)      $ECHO "SPARTA version $SPARTA_VER"
                 exit 0
                 ;;
-
         h|?)    help
                 exit 0
 
@@ -457,40 +458,46 @@ case "$subcommand" in
 esac
 
 
+$ECHO "Nexenta Performance gathering script"
+$ECHO "====================================\n"
+
 #
 # Check to see whether there is an updated version of SPARTA online
 # If so we need to exec the auto-install utility that we've pulled down as we can't
 # update ourselves, whilst running.
 # At the end of the auto-install, that utility re-invokes sparta.sh again.
 #
+# Controlled by the UPDATE_OPT in the sparta.config file or sparta.sh -u {yes|no}
+# in reality only supplying yes will allow the upgrade check to proceed.
+#
 
-$ECHO "Checking SPARTA version online"
-bootstrap
+if [ "$UPDATE_OPT" == "yes" ]; then
+    $ECHO "Checking SPARTA version online"
+    bootstrap
 
-if [ $? -eq 1 ]; then
-    $ECHO "Attempting to download current version of SPARTA"
+    if [ $? -eq 1 ]; then
+        $ECHO "Attempting to download current version of SPARTA"
 
-    pull_me $SPARTA_URL $SPARTA_FILE
-    if [ $? -eq 0 ]; then
-        pull_me $SPARTA_UPDATER_URL $SPARTA_UPDATER
+        pull_me $SPARTA_URL $SPARTA_FILE
         if [ $? -eq 0 ]; then
-	    #
-	    # Looks like we've successfully pulled down the new SPARTA tarball and installer
-	    # so lets invoke the auto-install utility to get upto data binaries
-	    #
-            exec $SPARTA_UPDATER $SPARTA_FILE /tmp/$SPARTA_HASH
+            pull_me $SPARTA_UPDATER_URL $SPARTA_UPDATER
+            if [ $? -eq 0 ]; then
+	        #
+	        # Looks like we've successfully pulled down the new SPARTA tarball and installer
+	        # so lets invoke the auto-install utility to get upto date binaries
+	        #
+                exec $SPARTA_UPDATER $SPARTA_FILE /tmp/$SPARTA_HASH
+            else
+                $ECHO "Unable to download the auto-updater"
+            fi
         else
-            $ECHO "Unable to download the auto-updater"
+            $ECHO "Unable to download the current SPARTA tarball"
         fi
+
     else
-        $ECHO "Unable to download the current SPARTA tarball"
+        $ECHO "Most recent version of SPARTA already installed"
     fi
-
-else
-    $ECHO "Most recent version of SPARTA already installed"
 fi
-
-
 
 
 #
@@ -509,8 +516,6 @@ if [ ! -d $LOG_DIR/mdb ]; then
     $MKDIR $LOG_DIR/mdb
 fi
 
-$ECHO "Nexenta Performance gathering script"
-$ECHO "====================================\n"
 
 #
 # Collect the defined configuration files of interest
