@@ -71,7 +71,7 @@ fi
 #
 function usage
 {
-    $ECHO "Usage: `basename $0` [-h] [-C|-I|-N] [-p zpoolname] -c [ start | stop | status | tarball | version ]\n"
+    $ECHO "Usage: `basename $0` [-h] [-C|-I|-N] [-p zpoolname] -u [ yes | no ] -c [ start | stop | status | tarball | version ]\n"
 }
 
 #
@@ -100,6 +100,7 @@ function help
     $ECHO "  -I              : Enable iSCSI data collection."
     $ECHO "  -N              : Enable NFS data collection."
     $ECHO "  -p <zpoolname>  : Monitor the given ZFS pool"
+    $ECHO "  -u [ yes | no ] : Enable or disable the automatic update feature"
     $ECHO ""
     $ECHO "  -v              : display the version."
     $ECHO "  -help | -h | -? : display this help page.\n"

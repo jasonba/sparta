@@ -17,7 +17,7 @@ insufficient space in the syspool you will not be able to continue
 # ./installer.sh
 
 Once installed you'll need to invoke the /perflogs/scripts/sparta.sh
-script to start collecting data.
+script with arguments (see below) to start collecting data.
 
 
 Running
@@ -45,6 +45,25 @@ happen, thus it's imperitive a command be given.
 [ It also accepts a -h | -help | -? switch to dump out a help page ]
 
 
+
+Automatic Updates
+-----------------
+SPARTA will attempt to connect to an Internet based server in order to check
+for and download an updated version of itself.
+It does this automatically when invoked, however if you wish to skip the auto
+update feature because the appliance is behind a firewall or the auto update
+feature failed to work, you should invoke sparta.sh with a -u switch.
+This takes either a yes or no keyword, to either enable the automatic update
+feature (enabled by default) or bypass the feature.
+
+Thus to bypass the automatic update check, use:
+
+  sparta.sh -u no -c start
+
+
+
+SPARTA progress
+---------------
 The script runs through numerous dtrace scripts and utilities, collecting
 data as it progresses and outputing to the screen the status of the
 collection.
@@ -55,21 +74,56 @@ contains slightly more detail.
 Ideally the script should be run once when the appliance is not
 experiencing performance issues, such that a baseline can be established.
 If a baseline is to be established, collect between 30 - 60 minutes of
-dtrace data before stopping the script.
+dtrace data before stopping the script and then generating a tarball 
+which can then be uploaded to Nexenta for further analysis.
 
-When a performance issue is experienced, run the script again to collect
-data and then discuss the results with a Nexenta Support Engineer.
+Example:
+
+# cd /perflogs/scripts
+# ./sparta.sh -c start
+
+(wait 30 - 60 minutes)
+
+# ./sparta.sh -c stop
+# ./sparta.sh -c tarball
+
+The script has been designed to be left running in order to capture data
+when a performance problem arises, so start SPARTA and leave it running
+however it is presently advisable to monitor the space usage of the /perflogs
+directory to ensure this doesn't fill up too rapidly.
+
 
 
 Post Run
 --------
-After the script has been run, you'll need upload the data to the Nexenta
-FTP server.  This information is displayed after a successful run.
+After the script has been run, you'll be asked whether you wish to generate
+a tarball of the collected data *SO FAR*.
+Bear in mind this is usually about 3 minutes worth of data, so it is barely
+any data to work with and possibly a useable baseline during a quiet period.
 
-For example:
+If you answer yes a tarball will be created.
+Alternatively you can run:
+
+  sparta.sh -c tarball
+
+and this will generate a tarball.
+Once a tarball has been generated that captures a performance problem, please
+upload this to the Nexenta FTP server.
+
+
+Example tarball output
+----------------------
+
+# /perflogs/scripts/sparta.sh -c tarball
+Generating a tarball of collected performance data
+Creating tarball ... done
+Compressing tarball ... done
 
 A snapshot of the currently collected data has been collected.
-Please upload /tmp/nexenta_perf_data-2013-02-06_11:58:05.tar.gz to ftp.nexenta.com:/upload/<CASE_REF>
-
+Please upload /var/tmp/nexenta_perf_data-2013-10-23_16:58:42.tar.gz to ftp.nexenta.com:/upload/<CASE_REF>
 where <CASE_REF> should be substituted for the case reference number
 of the performance issue is being investigated.
+
+Please update your case reference in http://login.salesforce.com 
+or contact support@nexenta.com if there are additional questions.
+
