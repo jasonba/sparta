@@ -235,6 +235,97 @@ cursor_pause()
     printf "\b\b\b   \b\b\b"
 }
 
+
+#
+# Download a file from the Internet, where we pass in:
+# arg1 = URL
+# arg2 = The full name and path of the file to store (typically in /tmp)
+#
+# Return codes:
+#   0 = Success
+#   1 = An error occurred
+#
+function pull_me
+{
+    DOWNLOAD_URL="$1"
+    DOWNLOAD_FILE="$2"
+    if [ "x$DOWNLOAD_URL" == "x" -o "x$DOWNLOAD_FILE" == "x" ]; then
+	return 1
+    fi
+
+    WGET_OPTS="-o /dev/null --no-check-certificate"
+    #WGET_OPTS="--no-check-certificate"
+
+    TEMP_LOCATION="`$ECHO $DOWNLOAD_FILE | awk -F'/' '{print "/"$2}'`"	# Where we're storing the download
+    FREE_SPACE_MIN=10						        # How much free space required in Megabytes
+
+    # In reality we don't need much space but we're processing human readable output
+    # which means we're likely to see K (kilobytes), M (megabytes) or G (gigabytes)
+    # so if free space is either M or G then we know there's plenty available.
+    # The first check is to see if there's gigabytes of free space, in which case we
+    # know we can continue, otherwise if that fails we check for at least 10MB of free
+    # space and if that succeeds we can proceed.
+    #
+    # In theory we should also check for Terabytes and Petabytes but I've never seen
+    # the output for a Petabyte filesystem.  The man page for df suggests T and P 
+    # for Terabytes and Petabytes, so we could check for those.
+    #
+    FREE_SPACE_CHECK="`df -h $TEMP_LOCATION | grep -v 'Filesystem' | awk '$4 ~ /[0-9][G|T|P]/ {print $4}'`"
+    if [ "x${FREE_SPACE_CHECK}" == "x" ]; then
+	FREE_SPACE_CHECK="`df -h $TEMP_LOCATION | grep -v 'Filesystem' | awk '$4 ~ /[1-9][0-9]M/ {print $4}'`"
+	if [ "x${FREE_SPACE_CHECK}" == "x" ]; then
+	    $ECHO "Less than ${FREE_SPACE}MB in $TEMP_LOCATION"
+	    $ECHO "Unable to proceed in pulling down new file due to lack of available space"
+	    $ECHO "Please check and take corrective maintenance soon, otherwise the appliance may become unresponsive"
+	    return 1
+	fi
+    fi
+
+    $WGET $WGET_OPTS $DOWNLOAD_URL -O ${DOWNLOAD_FILE}
+    if [ $? -ne 0 ]; then
+	return 1
+    else
+	return 0
+    fi
+}
+
+
+#
+# Attempt to pull down the current md5 fingerprint/hash of the SPARTA tarball and
+# compare to the file that's stored locally.
+# If this doesn't exist, then store a copy locally and update SPARTA anyhow
+#
+# Return codes:
+# 0 - Hash files are the same
+# 1 - Hash files were different
+# 2 - There was an error
+#
+function bootstrap
+{
+    if [ ! -d $SPARTA_ETC ]; then
+	mkdir $SPARTA_ETC
+	if [ $? -ne 0 ]; then
+	    $ECHO "Unable to create SPARTA config directory"
+	    return 2
+	fi
+    fi
+    pull_me $SPARTA_HASH_URL /tmp/$SPARTA_HASH
+    if [ $? -ne 0 ]; then
+        $ECHO "Unable to obtain SPARTA hash"
+        return 2
+    fi
+    if [ ! -r $SPARTA_ETC/$SPARTA_HASH ]; then
+        $CP /tmp/$SPARTA_HASH $SPARTA_ETC
+    else 
+        $DIFF $SPARTA_ETC/$SPARTA_HASH /tmp/$SPARTA_HASH > /dev/null 2>&1 
+        if [ $? -ne 0 ]; then
+            return 1
+        else
+	    return 0
+        fi
+    fi
+}
+
 #
 # Generate a tarball of the perflogs directory
 #
@@ -364,6 +455,43 @@ case "$subcommand" in
 	exit 0
 	;;
 esac
+
+
+#
+# Check to see whether there is an updated version of SPARTA online
+# If so we need to exec the auto-install utility that we've pulled down as we can't
+# update ourselves, whilst running.
+# At the end of the auto-install, that utility re-invokes sparta.sh again.
+#
+
+$ECHO "Checking SPARTA version online"
+bootstrap
+
+if [ $? -eq 1 ]; then
+    $ECHO "Attempting to download current version of SPARTA"
+
+    pull_me $SPARTA_URL $SPARTA_FILE
+    if [ $? -eq 0 ]; then
+        pull_me $SPARTA_UPDATER_URL $SPARTA_UPDATER
+        if [ $? -eq 0 ]; then
+	    #
+	    # Looks like we've successfully pulled down the new SPARTA tarball and installer
+	    # so lets invoke the auto-install utility to get upto data binaries
+	    #
+            exec $SPARTA_UPDATER
+        else
+            $ECHO "Unable to download the auto-updater"
+        fi
+    else
+        $ECHO "Unable to download the current SPARTA tarball"
+    fi
+
+else
+    $ECHO "Most recent version of SPARTA already installed"
+fi
+
+
+
 
 #
 # Performance samples are collated by day (where possible) so figure out the day
