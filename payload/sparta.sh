@@ -890,7 +890,7 @@ $ECHO "done"
 #
 $ECHO "Collecting CPU interrupt information ... \c"
 print_to_log "Collecting CPU interrupt information" $SPARTA_LOG $FF_DATE
-$ECHO "::interrupts -d" | $MDB -k >> $LOG_DIR/mdb/interrupts.out
+$ECHO "::interrupts -d" | $MDB -k > $LOG_DIR/mdb/interrupts.out
 $ECHO "done"
 
 
@@ -899,7 +899,7 @@ $ECHO "done"
 #
 $ECHO "Collecting task information ... \c"
 print_to_log "Collecting taskq information" $SPARTA_LOG $FF_DATE
-$ECHO "::taskq" | $MDB -k >> $LOG_DIR/mdb/taskq.out
+$ECHO "::taskq" | $MDB -k > $LOG_DIR/mdb/taskq.out
 $ECHO "done"
 
 
