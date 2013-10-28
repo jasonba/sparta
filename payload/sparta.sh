@@ -138,6 +138,7 @@ function script_status
     pgrep -fl "$MPSTAT $MPSTAT_OPTS"
     pgrep -fl "$IOSTAT $IOSTAT_OPTS"
     pgrep -fl "$PRSTAT $PRSTAT_OPTS"
+    pgrep -fl "$SPARTA_SHIELD"
 }
 
 
@@ -912,6 +913,13 @@ $ZPOOL list >> $LOG_DIR/$SAMPLE_DAY/zpool_list.out 2>&1
 $ZPOOL status >> $LOG_DIR/$SAMPLE_DAY/zpool_status.out 2>&1 
 $ZFS get -r all $ZPOOL_NAME >> $LOG_DIR/$SAMPLE_DAY/zfs_get-r_all.${ZPOOL_NAME}.out 2>&1
 $ECHO "done"
+
+
+#
+# Invoke the SPARTA watchdog monitor to prevent filling up the monitoring zpool
+#
+print_to_log "Starting SPARTA watchdog monitor" $SPARTA_LOG $FF_DATE
+$NOHUP $SPARTA_SHIELD >> $SPARTA_LOG 2>&1 &
 
 
 #
