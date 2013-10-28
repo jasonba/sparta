@@ -329,23 +329,61 @@ function bootstrap
 }
 
 #
+# Calculate the non-compressed disk/space usage of a given directory.
+# This is required as the performance logging filesystem usually has gzip-9 compression
+# thus you cannot rely on then usual methods for working out space used.
+#
+function calc_space()
+{
+    SEARCH_PATH=$1
+    if [ ! -e "$SEARCH_PATH" ]; then
+        # Invalid path supplied
+        return -1
+    fi
+    find "$SEARCH_PATH" -ls | gawk --lint --posix '
+        BEGIN {
+            split("B K M G T P",type)
+            ls=hls=0;
+        }
+        NF >= 7 {
+            ls += $7
+        }
+        END {
+            for(i=5; hls<1; i--) {
+                hls = ls / (2^(10*i))
+            }
+            printf "%d\n", ls
+        }
+    '
+}
+
+
+#
 # Generate a tarball of the perflogs directory
 #
 function generate_tarball
 {
     #
     # Test to see how much space we're using in the perflogs directory before trying to create a tarball
-    # as this may fill up the temporary filesystem
+    # as this may fill up the temporary filesystem and then multiply that by a safety margin
     #
-    $ZFS get -Hp used $LOG_DATASET > /dev/null 2>&1
-    if [ $? -eq 0 ]; then
-        PERFLOG_USAGE="`$ZFS get -Hp used $LOG_DATASET | awk '{print $3}'`"
-    else
-        PERFLOG_USAGE="`$DU -s $LOG_DIR | awk '{print $1*512}'`"
-    fi
+    PERFLOG_USAGE="`calc_space $LOG_DATASET`"
+    PERFLOG_USAGE="`expr $PERFLOG_USAGE \* 2`"
 
-    if [ $PERFLOG_USAGE -gt $LOG_USED_MAX ]; then
-        $ECHO "There appears to be historical data in the $LOG_DIR filesystem exceeding `expr $LOG_USED_MAX / $MEGABYTE`MB"
+    #
+    # Now figure out the dataset/filesystem associated with the tarball temporary directory and
+    # pull out the available space from that dataset
+    #
+    PERF_DATASET="`df $TARBALL_DIR | awk -F'(' '{print $2}' | awk -F')' '{print $1}'`"
+    PERF_DATASET_AVAIL="`$ZFS get -Hp avail $PERF_DATASET | awk '{print $3}'`"
+
+
+    if [ $PERFLOG_USAGE -lt $PERF_DATASET_AVAIL ]; then
+        if [ $PERFLOG_USAGE -gt $LOG_USAGE_WARNING ]; then
+            $ECHO "There appears to be historical data in the $LOG_DIR filesystem exceeding `expr $LOG_USAGE_WARNING / $GIGABYTE`GB"
+	    $ECHO "This may take a while to generate the tarball and then compress it"
+	    $ECHO "Please consider reviewing the contents of $LOG_DIR and removing redundant data"
+	fi
         TARBALL_ANS="n"
         while [ true ]; do
 	    $ECHO "Are you sure you wish to generate a tarball? (y|n) : \c"
@@ -364,6 +402,14 @@ function generate_tarball
 		    ;;
 	    esac
 	done
+    else
+        $ECHO "Creating that tarball would require `expr $PERFLOG_USAGE / $MEGABYTES`MB of free space in $TARBALL_DIR"
+	$ECHO "and you only have `expr $PERF_DATASET_AVAIL / $MEGABYTE`MB available."
+	$ECHO "Please consider removing old/redundant data in $LOG_DATASET"
+        $ECHO "or you can adjust the location of TARBALL_DIR in the sparta configuration file."
+	$ECHO ""
+	$ECHO "Unable to create that tarball"
+	return 1
     fi
 
     $ECHO "Creating tarball ... \c" 
