@@ -847,6 +847,7 @@ $ECHO " done"
 # Collect NFS and CIFS server share properties
 #
 $ECHO "Collecting NFS and CIFS share information ... \c"
+print_to_log "Collecting NFS and CIFS share information" $SPARTA_LOG $FF_DATE
 $SHARECTL get nfs > $LOG_DIR/$SAMPLE_DAY/sharectl_get_nfs.out
 $SHARECTL get smb > $LOG_DIR/$SAMPLE_DAY/sharectl_get_smb.out
 $ECHO " done"
@@ -856,6 +857,7 @@ $ECHO " done"
 # Collect Network configuration details
 #
 $ECHO "Collecting network configuration information ... \c"
+print_to_log "Collecting network configuration information" $SPARTA_LOG $FF_DATE
 $IFCONFIG -a > $LOG_DIR/$SAMPLE_DAY/ifconfig-a.out
 $DLADM show-phys > $LOG_DIR/$SAMPLE_DAY/dladm-show-phys.out
 $DLADM show-link > $LOG_DIR/$SAMPLE_DAY/dladm-show-link.out
