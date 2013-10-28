@@ -367,8 +367,8 @@ function generate_tarball
     # Test to see how much space we're using in the perflogs directory before trying to create a tarball
     # as this may fill up the temporary filesystem and then multiply that by a safety margin
     #
-    PERFLOG_USAGE="`calc_space $LOG_DATASET`"
-    PERFLOG_USAGE="`expr $PERFLOG_USAGE \* 2`"
+    PERFLOG_USAGE="`calc_space $LOG_DIR`"
+    PERFLOG_USAGE="`$ECHO $PERFLOG_USAGE $LOG_USAGE_SCALING_FACTOR | awk '{printf("%d", $1 * $2)}'`"
 
     #
     # Now figure out the dataset/filesystem associated with the tarball temporary directory and
@@ -380,9 +380,9 @@ function generate_tarball
 
     if [ $PERFLOG_USAGE -lt $PERF_DATASET_AVAIL ]; then
         if [ $PERFLOG_USAGE -gt $LOG_USAGE_WARNING ]; then
-            $ECHO "There appears to be historical data in the $LOG_DIR filesystem exceeding `expr $LOG_USAGE_WARNING / $GIGABYTE`GB"
+            $ECHO "\nThere appears to be historical data in the $LOG_DIR filesystem exceeding `expr $LOG_USAGE_WARNING / $GIGABYTE`GB"
 	    $ECHO "This may take a while to generate the tarball and then compress it"
-	    $ECHO "Please consider reviewing the contents of $LOG_DIR and removing redundant data"
+	    $ECHO "Please consider reviewing the contents of $LOG_DIR and removing redundant data\n"
 	fi
         TARBALL_ANS="n"
         while [ true ]; do
@@ -403,9 +403,9 @@ function generate_tarball
 	    esac
 	done
     else
-        $ECHO "Creating that tarball would require `expr $PERFLOG_USAGE / $MEGABYTES`MB of free space in $TARBALL_DIR"
+        $ECHO "\nCreating that tarball would require `expr $PERFLOG_USAGE / $MEGABYTE`MB of free space in $TARBALL_DIR"
 	$ECHO "and you only have `expr $PERF_DATASET_AVAIL / $MEGABYTE`MB available."
-	$ECHO "Please consider removing old/redundant data in $LOG_DATASET"
+	$ECHO "\nPlease consider removing old/redundant data in $LOG_DATASET"
         $ECHO "or you can adjust the location of TARBALL_DIR in the sparta configuration file."
 	$ECHO ""
 	$ECHO "Unable to create that tarball"
@@ -420,9 +420,13 @@ function generate_tarball
     $ECHO "done"
     $ECHO "Compressing tarball ... \c" 
     $GZIP -v $PERF_TARBALL >> $SPARTA_LOG 2>&1
-    $ECHO "done\n"
+    if [ $? -eq 0 ]; then
+        $ECHO "done"
+    else
+    	$ECHO "failed! error encountered compressing the file (will not have .gz suffix)"
+    fi
 
-    $ECHO "A snapshot of the currently collected data has been collected."
+    $ECHO "\nA snapshot of the currently collected data has been collected."
     $ECHO "Please upload ${PERF_TARBALL}.gz to $FTP_SERVER:/upload/<CASE_REF>"
     $ECHO "where <CASE_REF> should be substituted for the case reference number"
     $ECHO "of the performance issue is being investigated.\n"
