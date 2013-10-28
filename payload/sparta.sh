@@ -488,6 +488,7 @@ if [ "$UPDATE_OPT" == "yes" ]; then
 	        # Looks like we've successfully pulled down the new SPARTA tarball and installer
 	        # so lets invoke the auto-install utility to get upto date binaries
 	        #
+		chmod 700 $SPARTA_UPDATER
                 exec $SPARTA_UPDATER $SPARTA_FILE /tmp/$SPARTA_HASH
             else
                 $ECHO "Unable to download the auto-updater"
