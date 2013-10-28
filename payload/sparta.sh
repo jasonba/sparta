@@ -921,8 +921,13 @@ $ECHO "done"
 #
 # Invoke the SPARTA watchdog monitor to prevent filling up the monitoring zpool
 #
-print_to_log "Starting SPARTA watchdog monitor" $SPARTA_LOG $FF_DATE
-$NOHUP $SPARTA_SHIELD >> $SPARTA_LOG 2>&1 &
+SHIELD_PID="`pgrep -fl \"$SPARTA_SHIELD\" | awk '{print $1}'`"
+if [ "x${SHIELD_PID}" == "x" ]; then
+    print_to_log "Starting SPARTA watchdog monitor" $SPARTA_LOG $FF_DATE
+    $NOHUP $SPARTA_SHIELD >> $SPARTA_LOG 2>&1 &
+else
+    print_to_log "SPARTA watchdog monitor already running as PID $SHIELD_PID" $SPARTA_LOG $FF_DATE
+fi
 
 
 #
