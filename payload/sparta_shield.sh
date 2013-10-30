@@ -3,25 +3,23 @@
 #
 # Program       : sparta_shield.sh
 # Author        : Jason.Banham@Nexenta.COM
-# Date          : 2013-10-25
-# Version       : 0.01
+# Date          : 2013-10-25 - 2013-10-30
+# Version       : 0.02
 # Usage         : sparta_shield.sh
 # Purpose       : A Watchdog script to monitor the SPARTA performance logging 
 #		  filesystem and stop sparta.sh if that becomes too full
 # Legal         : Copyright 2013, Nexenta Systems, Inc. 
 #
 # History       : 0.01 - Initial version
+#		  0.02 - Moved the date prefix code so it's accurate when we
+#		         need to record this in the sparta.log file
+#
 
 
 #
 # Configuration file locations
 #
 SPARTA_CONFIG=/perflogs/etc/sparta.config
-
-#
-# What we prefix to the log file when writing
-#
-PREFIX="${PREFIX}`date +%Y-%m-%d_%H:%M:%S` "
 
 #
 # Pull out configurations details from the resource monitor config file
@@ -61,6 +59,11 @@ do
     PERF_POOL="`$ECHO $LOG_DATASET | awk -F'/' '{print $1}'`"
     POOL_CAPACITY="`$ZPOOL list -H -o capacity $PERF_POOL | awk -F'%' '{print $1}'`"
     if [ $POOL_CAPACITY -gt $PERF_ZPOOL_CAPACITY_PERC ]; then
+        #
+        # What we prefix to the log file when writing
+        #
+        PREFIX="${PREFIX}`date +%Y-%m-%d_%H:%M:%S` "
+
 	$ECHO "${PREFIX}Unable to continue monitoring $ZPOOL_NAME for performance issues as the pool is > ${PERF_ZPOOL_CAPACITY_PERC}% full" >> $SPARTA_LOG
 	$ECHO "${PREFIX}stopping sparta" >> $SPARTA_LOG
 	$LOG_SCRIPTS/sparta.sh -c stop >> $SPARTA_LOG 2>&1
