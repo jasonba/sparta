@@ -1002,6 +1002,7 @@ $ECHO "log files at a later date.\n"
 $ECHO "Would you like to generate a tarball of the data collected so far? \c"
 TARBALL_ANS="n"
 while [ true ]; do
+    $ECHO "(y|n) : \c"
     read TARBALL_ANS
     if [ `echo $TARBALL_ANS | wc -c` -lt 2 ]; then
         continue;
