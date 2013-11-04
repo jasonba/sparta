@@ -23,23 +23,23 @@ script with arguments (see below) to start collecting data.
 Running
 -------
 The sparta.sh script takes the following arguments but is typically
-invoked using 'sparta.sh -c <command>' where the command may be one
+invoked using 'sparta.sh <command>' where the command may be one
 of the following:
 
-   sparta.sh -c start	 : Starts the data collection
-   sparta.sh -c stop 	 : Stops any active dtrace scripts
-   sparta.sh -c status	 : Displays which dtrace scripts are running
-   sparta.sh -c tarball	 : Generates a tarball of /perflogs (can be quite LARGE)
-   sparta.sh -c version  : Displays the version of SPARTA
+   sparta.sh start	 : Starts the data collection
+   sparta.sh stop 	 : Stops any active dtrace scripts
+   sparta.sh status	 : Displays which dtrace scripts are running
+   sparta.sh tarball	 : Generates a tarball of /perflogs (can be quite LARGE)
+   sparta.sh version     : Displays the version of SPARTA
 
 There are several optional switches that can be supplied to enable
 NFS, CIFS or iSCSI monitoring, thus:
 
-   sparta.sh -N	-c start : Enable NFS scripts
-   sparta.sh -C -c start : Enable CIFS scripts
-   sparta.sh -I -c start : Enable iSCSI scripts
+   sparta.sh -N	start : Enable NFS scripts
+   sparta.sh -C start : Enable CIFS scripts
+   sparta.sh -I start : Enable iSCSI scripts
         
-If you don't specify a command using the -c switch, then nothing will
+If you don't specify a command using the switch, then nothing will
 happen, thus it's imperitive a command be given. 
 
 [ It also accepts a -h | -help | -? switch to dump out a help page ]
@@ -58,7 +58,7 @@ feature (enabled by default) or bypass the feature.
 
 Thus to bypass the automatic update check, use:
 
-  sparta.sh -u no -c start
+  sparta.sh -u no start
 
 
 
@@ -80,12 +80,12 @@ which can then be uploaded to Nexenta for further analysis.
 Example:
 
 # cd /perflogs/scripts
-# ./sparta.sh -c start
+# ./sparta.sh start
 
 (wait 30 - 60 minutes)
 
-# ./sparta.sh -c stop
-# ./sparta.sh -c tarball
+# ./sparta.sh stop
+# ./sparta.sh tarball
 
 The script has been designed to be left running in order to capture data
 when a performance problem arises, so start SPARTA and leave it running
@@ -104,17 +104,18 @@ any data to work with and possibly a useable baseline during a quiet period.
 If you answer yes a tarball will be created.
 Alternatively you can run:
 
-  sparta.sh -c tarball
+  sparta.sh tarball
 
 and this will generate a tarball.
 Once a tarball has been generated that captures a performance problem, please
 upload this to the Nexenta FTP server.
 
 
+
 Example tarball output
 ----------------------
 
-# /perflogs/scripts/sparta.sh -c tarball
+# /perflogs/scripts/sparta.sh tarball
 Generating a tarball of collected performance data
 Creating tarball ... done
 Compressing tarball ... done

@@ -4,7 +4,7 @@
 # Program       : sparta_shield.sh
 # Author        : Jason.Banham@Nexenta.COM
 # Date          : 2013-10-25 - 2013-10-30
-# Version       : 0.02
+# Version       : 0.03
 # Usage         : sparta_shield.sh
 # Purpose       : A Watchdog script to monitor the SPARTA performance logging 
 #		  filesystem and stop sparta.sh if that becomes too full
@@ -13,6 +13,7 @@
 # History       : 0.01 - Initial version
 #		  0.02 - Moved the date prefix code so it's accurate when we
 #		         need to record this in the sparta.log file
+#		  0.03 - Modified how we call the stop method to SPARTA
 #
 
 
@@ -66,7 +67,7 @@ do
 
 	$ECHO "${PREFIX}Unable to continue monitoring $ZPOOL_NAME for performance issues as the pool is > ${PERF_ZPOOL_CAPACITY_PERC}% full" >> $SPARTA_LOG
 	$ECHO "${PREFIX}stopping sparta" >> $SPARTA_LOG
-	$LOG_SCRIPTS/sparta.sh -c stop >> $SPARTA_LOG 2>&1
+	$LOG_SCRIPTS/sparta.sh stop >> $SPARTA_LOG 2>&1
 	logger -p daemon.notice "SPARTA terminated due to lack of space in $PERF_POOL"
 	exit 0
     fi

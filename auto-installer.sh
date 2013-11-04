@@ -3,11 +3,12 @@
 #
 # Program	: auto-installer.sh
 # Author	: Jason Banham
-# Date		: 2013-10-21
-# Version	: 0.01
+# Date		: 2013-11-04
+# Version	: 0.02
 # Usage		: auto-installer.sh <tarball>
 # Purpose	: Companion script to SPARTA for auto-installing a new sparta.tar.gz file
 # History	: 0.01 - Initial version, based on the installer.sh script
+#		  0.02 - Altered call method for starting sparta.sh (removed -c switch)
 #
 
 #
@@ -162,4 +163,4 @@ $COPY $HASH_FILE $LOG_CONFIG/sparta.hash
 $ECHO "done"
 $ECHO "Restarting SPARTA with the new version"
 
-exec $LOG_SCRIPTS/sparta.sh -c start
+exec $LOG_SCRIPTS/sparta.sh start

@@ -3,14 +3,15 @@
 #
 # Program	: installer.sh
 # Author	: Jason Banham
-# Date		: 2013-01-04 | 2013-10-02
-# Version	: 0.04
+# Date		: 2013-01-04 | 2013-11-04
+# Version	: 0.05
 # Usage		: installer.sh [<zpool name>]
 # Purpose	: Gather performance statistics for a NexentaStor appliance
 # History	: 0.01 - Initial version
 #		  0.02 - Added ZIL stat collection scripts
 #		  0.03 - NexentaStor 3.x detection added
 #		  0.04 - Added more scripts, CIFS and iSCSI monitoring, metaslab allocs
+#		  0.05 - Adjusted how we call sparta.sh script
 #
 
 #
@@ -185,9 +186,9 @@ $ECHO "\nWould you like me to run the performance gathering script? (y|n) \c"
 read RUNME
 RUNME="`$ECHO $RUNME | $TR '[:upper:]' '[:lower:]'`"
 if [ "$RUNME" == "y" ]; then
-    $LOG_SCRIPTS/sparta.sh -c start
+    $LOG_SCRIPTS/sparta.sh start
 fi
 
-$ECHO "\nTo run the script manually use - $LOG_SCRIPTS/sparta.sh -c start"
+$ECHO "\nTo run the script manually use - $LOG_SCRIPTS/sparta.sh start"
 
 exit 0

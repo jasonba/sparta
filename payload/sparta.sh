@@ -3,8 +3,8 @@
 #
 # Program	: sparta.sh
 # Author	: Jason.Banham@Nexenta.COM
-# Date		: 2013-02-04 - 2013-09-25
-# Version	: 0.18
+# Date		: 2013-02-04 - 2013-11-04
+# Version	: 0.234
 # Usage		: sparta.sh [ -h | -help | start | status | stop | tarball ]
 # Purpose	: Gather performance statistics for a NexentaStor appliance
 # Legal		: Copyright 2013, Nexenta Systems, Inc. 
@@ -33,6 +33,13 @@
 #			 but is still installed for manual invocation
 #		  0.17 - Added NFS and CIFS sharectl collection
 #		  0.18 - Added network configuration data collection
+#		  0.19 - SPARTA is now capable of auto updates through external update script
+#		  0.20 - Added new switches to enable CIFS, iSCSI or NFS on command line
+#	   	  0.21 - Added a -p <poolname> switch for quick pool selection
+#		  0.22 - Modified the generate_tarball function to be more intelligent to
+#			 actual data file usage and available free space
+#		  0.23 - Added nfs server side statistic collection
+#		  
 #
 
 SPARTA_CONFIG_READ_OK=0
@@ -71,7 +78,7 @@ fi
 #
 function usage
 {
-    $ECHO "Usage: `basename $0` [-h] [-C|-I|-N] [-p zpoolname] -u [ yes | no ] -c [ start | stop | status | tarball | version ]\n"
+    $ECHO "Usage: `basename $0` [-h] [-C|-I|-N] [-p zpoolname] -u [ yes | no ] { start | stop | status | tarball | version }\n"
 }
 
 #
@@ -81,14 +88,13 @@ function help
 {
     $ECHO "This is SPARTA (System Performance And Reporting Tool Analyser)"
     $ECHO "a performance gathering utility for NexentaStor\n"
-    $ECHO "To invoke you must call sparta.sh -c start and it will then look for"
+    $ECHO "To invoke you must call sparta.sh start and it will then look for"
     $ECHO "a configuration file in $SPARTA_CONFIG and if found and valid, will read"
     $ECHO "this file in, then start collecting a series of performance data using"
     $ECHO "dtrace and other utilities.\n"
-    $ECHO "You MUST use -c <command> in order to invoke SPARTA to perform an action"
+    $ECHO "You MUST use a command in order to invoke SPARTA to perform an action"
     $ECHO "where the command must be one of the following:"
     $ECHO ""
-    $ECHO "  -c <command> with one of the following commands:"
     $ECHO "    start         : start collecting performance data."
     $ECHO "    status        : displays any running dtrace scripts it has invoked."
     $ECHO "    stop          : attempt to stop the dtrace scripts it started."
@@ -440,7 +446,7 @@ function generate_tarball
 #
 subcommand="usage"
 
-while getopts ChINu:vp:c:? argopt
+while getopts ChINu:vp:? argopt
 do
         case $argopt in
         C)      # Enable CIFS scripts
@@ -455,8 +461,8 @@ do
                 TRACE_NFS="y"
                 ;;
 
-        c)      subcommand=$OPTARG
-                ;;
+#        c)      subcommand=$OPTARG
+#                ;;
 
         p)      ZPOOL_NAME=$OPTARG
                 ;;
@@ -470,6 +476,9 @@ do
 
         esac
 done
+
+shift $((OPTIND-1))
+subcommand="$1"
 
 #
 # Check for a supplied command and act appropriately
