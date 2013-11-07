@@ -3,8 +3,8 @@
 #
 # Program	: installer.sh
 # Author	: Jason Banham
-# Date		: 2013-01-04 | 2013-11-04
-# Version	: 0.05
+# Date		: 2013-01-04 | 2013-11-08
+# Version	: 0.06
 # Usage		: installer.sh [<zpool name>]
 # Purpose	: Gather performance statistics for a NexentaStor appliance
 # History	: 0.01 - Initial version
@@ -12,6 +12,7 @@
 #		  0.03 - NexentaStor 3.x detection added
 #		  0.04 - Added more scripts, CIFS and iSCSI monitoring, metaslab allocs
 #		  0.05 - Adjusted how we call sparta.sh script
+#		  0.06 - Corrected sparta_shield.sh filename for installer
 #
 
 #
@@ -53,7 +54,7 @@ SPARTA_TEMPLATE=$LOG_CONFIG/sparta.config.template
 #
 # Scripts and files to install
 #
-SCRIPTS="arcstat.pl arc_adjust.v2.d arc_evict.d cifssvrtop dnlc_lookups.d iscsisvrtop kmem_reap_100ms.d large_delete.d txg_monitor.v3.d hotkernel.priv lockstat_sparta.sh metaslab.sh nfsio.d nfssrvutil.d nfssvrtop nfsrwtime.d sparta.sh sparta-shield.sh zil_commit_time.d zil_stat.d"
+SCRIPTS="arcstat.pl arc_adjust.v2.d arc_evict.d cifssvrtop dnlc_lookups.d iscsisvrtop kmem_reap_100ms.d large_delete.d txg_monitor.v3.d hotkernel.priv lockstat_sparta.sh metaslab.sh nfsio.d nfssrvutil.d nfssvrtop nfsrwtime.d sparta.sh sparta_shield.sh zil_commit_time.d zil_stat.d"
 CONFIG_FILES="sparta.config"
 README="README"
 

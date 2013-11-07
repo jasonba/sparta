@@ -3,8 +3,8 @@
 #
 # Program	: sparta.sh
 # Author	: Jason.Banham@Nexenta.COM
-# Date		: 2013-02-04 - 2013-11-04
-# Version	: 0.234
+# Date		: 2013-02-04 - 2013-11-08
+# Version	: 0.24
 # Usage		: sparta.sh [ -h | -help | start | status | stop | tarball ]
 # Purpose	: Gather performance statistics for a NexentaStor appliance
 # Legal		: Copyright 2013, Nexenta Systems, Inc. 
@@ -39,6 +39,7 @@
 #		  0.22 - Modified the generate_tarball function to be more intelligent to
 #			 actual data file usage and available free space
 #		  0.23 - Added nfs server side statistic collection
+#		  0.24 - Added a timeout value to the WGET options
 #		  
 #
 
@@ -261,7 +262,7 @@ function pull_me
 	return 1
     fi
 
-    WGET_OPTS="-o /dev/null --no-check-certificate"
+    WGET_OPTS="-T 10 -o /dev/null --no-check-certificate"
     #WGET_OPTS="--no-check-certificate"
 
     TEMP_LOCATION="`$ECHO $DOWNLOAD_FILE | awk -F'/' '{print "/"$2}'`"	# Where we're storing the download
