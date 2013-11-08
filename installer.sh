@@ -3,8 +3,8 @@
 #
 # Program	: installer.sh
 # Author	: Jason Banham
-# Date		: 2013-01-04 | 2013-11-08
-# Version	: 0.06
+# Date		: 2013-01-04 | 2013-11-09
+# Version	: 0.07
 # Usage		: installer.sh [<zpool name>]
 # Purpose	: Gather performance statistics for a NexentaStor appliance
 # History	: 0.01 - Initial version
@@ -13,6 +13,7 @@
 #		  0.04 - Added more scripts, CIFS and iSCSI monitoring, metaslab allocs
 #		  0.05 - Adjusted how we call sparta.sh script
 #		  0.06 - Corrected sparta_shield.sh filename for installer
+#		  0.07 - Corrected logic error when saving data in .services_to_monitor
 #
 
 #
@@ -147,7 +148,6 @@ case $SERVICE_ANS in
     * ) SERVICE_SED_STRING="willrobinson"
 	;;
 esac
-$ECHO "TRACE_NFS=${TRACE_NFS}\nTRACE_CIFS=${TRACE_CIFS}\nTRACE_ISCSI=${TRACE_ISCSI}" > $LOG_CONFIG/.services_to_monitor
 
 $ECHO "Installing scripts ..."
 
@@ -175,13 +175,18 @@ do
 	$ECHO "Failed to copy $config"
     fi
 done
+$ECHO "Scripts installed"
 
 #
 # Post processing of configuration files, based on user input
 #
 $ECHO "ZPOOL_NAME=$ZPOOL_NAME" > $LOG_CONFIG/.zpool_to_monitor
 
-$ECHO "Scripts installed"
+#
+# By now the $LOG_CONFIG directory should be present, so store our service preferences
+#
+$ECHO "TRACE_NFS=${TRACE_NFS}\nTRACE_CIFS=${TRACE_CIFS}\nTRACE_ISCSI=${TRACE_ISCSI}" > $LOG_CONFIG/.services_to_monitor
+
 
 $ECHO "\nWould you like me to run the performance gathering script? (y|n) \c"
 read RUNME
