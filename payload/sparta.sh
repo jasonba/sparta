@@ -1078,7 +1078,7 @@ function gather_cifs_share_output
 
 
 
-$ECHO "Nexenta Performance gathering script"
+$ECHO "Nexenta Performance gathering script ($SPARTA_VER)"
 $ECHO "====================================\n"
 
 #
