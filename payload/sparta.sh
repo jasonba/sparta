@@ -377,6 +377,8 @@ function calc_space()
 
 #
 # Generate a tarball of the perflogs directory
+#   arg1 = whether we wish to bypass the 'Do you wish to ...' question as this can be
+#          rather annoying when asked previously at the end of a sparta run
 #
 function generate_tarball
 {
@@ -400,25 +402,29 @@ function generate_tarball
             $ECHO "\nThere appears to be historical data in the $LOG_DIR filesystem exceeding `expr $LOG_USAGE_WARNING / $GIGABYTE`GB"
 	    $ECHO "This may take a while to generate the tarball and then compress it"
 	    $ECHO "Please consider reviewing the contents of $LOG_DIR and removing redundant data\n"
+            TARBALL_ANS="n"
+            while [ true ]; do
+ 	        if [ "x$1" == "xbypass" ]; then
+	            TARBALL_ANS="y"
+		    break;
+	        fi
+	        $ECHO "Are you sure you wish to generate a tarball? (y|n) : \c"
+                read TARBALL_ANS
+                if [ `echo $TARBALL_ANS | wc -c` -lt 2 ]; then
+                    continue;
+                fi
+                TARBALL_ANS="`$ECHO $TARBALL_ANS | $TR '[:upper:]' '[:lower:]'`"
+                case $TARBALL_ANS in 
+		    y ) break
+		        ;;
+		    n ) $ECHO "Skipping tarball generation"
+		        return 1
+		        ;;
+	            * ) continue
+		        ;;
+	        esac
+	    done
 	fi
-        TARBALL_ANS="n"
-        while [ true ]; do
-	    $ECHO "Are you sure you wish to generate a tarball? (y|n) : \c"
-            read TARBALL_ANS
-            if [ `echo $TARBALL_ANS | wc -c` -lt 2 ]; then
-                continue;
-            fi
-            TARBALL_ANS="`$ECHO $TARBALL_ANS | $TR '[:upper:]' '[:lower:]'`"
-            case $TARBALL_ANS in 
-		y ) break
-		    ;;
-		n ) $ECHO "Skipping tarball generation"
-		    return 1
-		    ;;
-	        * ) continue
-		    ;;
-	    esac
-	done
     else
         $ECHO "\nCreating that tarball would require `expr $PERFLOG_USAGE / $MEGABYTE`MB of free space in $TARBALL_DIR"
 	$ECHO "and you only have `expr $PERF_DATASET_AVAIL / $MEGABYTE`MB available."
