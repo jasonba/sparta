@@ -1,0 +1,49 @@
+SPARTA Workload Information
+===========================
+
+This directory contains some pre-configured template files that may be dropped into the SPARTA
+configuration directory (/perflogs/etc) as the .commands_local file, which overrides the default
+settings in the sparta.config file.
+
+This is to save time when there are certain types of data collection that is required, eg:
+the appliance may be overworked and you need a "light" sample of data.
+
+
+Usage
+=====
+
+If you wish to use of these templates, do the following (assumes default location of SPARTA
+config directory):
+
+1) Stop SPARTA
+
+   # /perflogs/scripts/sparta.sh stop
+
+2) Deploy the new template
+
+   # cd /perflogs/etc
+   # mv .commands_local .commands_local.orig
+   # cp ../workload_templates/<template_name> .commands_local
+
+3) Restart SPARTA
+
+   # /perflogs/scripts/sparta.sh start
+
+
+Supplied Templates
+==================
+
+light
+-----
+The following are disabled because they can cause additional CPU load/locking contention on an
+already busy appliance:
+
+  o) ZFS transaction group monitoring
+  o) ZFS metaslab monitoring
+  o) ZFS ZIL monitoring
+  o) lockstat data collection
+  o) NFS, CIFS and iSCSI data dtrace scripts 
+     - NFS config data still collected
+
+
+

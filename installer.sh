@@ -23,6 +23,7 @@ LOG_DIR=/perflogs
 LOG_DATASET=syspool/perflogs
 LOG_CONFIG=${LOG_DIR}/etc
 LOG_SCRIPTS=${LOG_DIR}/scripts
+LOG_TEMPLATES=${LOG_DIR}/workload_templates
 
 #
 # How much space needs to be available to start logging data (in bytes)
@@ -57,7 +58,7 @@ SPARTA_TEMPLATE=$LOG_CONFIG/sparta.config.template
 #
 SCRIPTS="arcstat.pl arc_adjust.v2.d arc_evict.d cifssvrtop dnlc_lookups.d iscsisvrtop kmem_reap_100ms.d large_delete.d txg_monitor.v3.d hotkernel.priv lockstat_sparta.sh metaslab.sh nfsio.d nfssrvutil.d nfssvrtop nfsrwtime.d sbd_zvol_unmap.d sparta.sh sparta_shield.sh stmf_task_time.d zil_commit_time.d zil_stat.d"
 CONFIG_FILES="sparta.config"
-README="README"
+TEMPLATE_FILES="README_WORKLOADS light"
 
 $ZFS get -H type $LOG_DATASET > /dev/null 2>&1
 if [ $? -ne 0 ]; then
@@ -157,6 +158,9 @@ fi
 if [ ! -d $LOG_CONFIG ]; then
     mkdir $LOG_CONFIG
 fi
+if [ ! -d $LOG_TEMPLATES ]; then
+    mkdir $LOG_TEMPLATES
+fi
 
 cp $README $LOG_DIR/
 
@@ -175,6 +179,15 @@ do
 	$ECHO "Failed to copy $config"
     fi
 done
+
+for template in $TEMPLATE_FILES
+do
+    $COPY payload/workload_templates/$template $LOG_TEMPLATES/
+    if [ $? -ne 0 ]; then
+	$ECHO "Failed to copy $template"
+    fi
+done
+
 $ECHO "Scripts installed"
 
 #

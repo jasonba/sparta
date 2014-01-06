@@ -18,6 +18,7 @@ LOG_DIR=/perflogs
 LOG_DATASET=syspool/perflogs
 LOG_CONFIG=${LOG_DIR}/etc
 LOG_SCRIPTS=${LOG_DIR}/scripts
+LOG_TEMPLATES=${LOG_DIR}/workload_templates
 
 #
 # How much space needs to be available to start logging data (in bytes)
@@ -130,6 +131,9 @@ fi
 if [ ! -d $LOG_CONFIG ]; then
     mkdir $LOG_CONFIG
 fi
+if [ ! -d $LOG_TEMPLATES ]; then
+    mkdir $LOG_TEMPLATES
+fi
 
 cp $README $LOG_DIR/
 
@@ -138,6 +142,14 @@ do
     $COPY payload/$script $LOG_SCRIPTS/
     if [ $? -ne 0 ]; then
 	$ECHO "Failed to install $script"
+    fi
+done
+
+for template in $TEMPLATE_FILES
+do
+    $COPY payload/workload_templates/$template $LOG_TEMPLATES/
+    if [ $? -ne 0 ]; then
+        $ECHO "Failed to copy $template"
     fi
 done
 
