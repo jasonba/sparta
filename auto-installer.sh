@@ -58,6 +58,7 @@ SPARTA_TEMPLATE=$LOG_CONFIG/sparta.config.template
 SCRIPTS="arcstat.pl arc_adjust.v2.d arc_evict.d cifssvrtop dnlc_lookups.d iscsisvrtop kmem_reap_100ms.d large_delete.d txg_monitor.v3.d hotkernel.priv lockstat_sparta.sh metaslab.sh nfsio.d nfssrvutil.d nfssvrtop nfsrwtime.d sbd_zvol_unmap.d sparta.sh sparta_shield.sh stmf_task_time.d zil_commit_time.d zil_stat.d"
 CONFIG_FILES="sparta.config"
 README="README"
+TEMPLATE_FILES="README_WORKLOADS light"
 
 
 # 
