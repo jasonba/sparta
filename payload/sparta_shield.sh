@@ -3,8 +3,8 @@
 #
 # Program       : sparta_shield.sh
 # Author        : Jason.Banham@Nexenta.COM
-# Date          : 2013-10-25 - 2013-10-30
-# Version       : 0.03
+# Date          : 2013-10-25 - 2014-01-07
+# Version       : 0.04
 # Usage         : sparta_shield.sh
 # Purpose       : A Watchdog script to monitor the SPARTA performance logging 
 #		  filesystem and stop sparta.sh if that becomes too full
@@ -14,8 +14,8 @@
 #		  0.02 - Moved the date prefix code so it's accurate when we
 #		         need to record this in the sparta.log file
 #		  0.03 - Modified how we call the stop method to SPARTA
+#		  0.04 - Added a trap handler to shutdown SPARTA and exit the shield
 #
-
 
 #
 # Configuration file locations
@@ -39,6 +39,20 @@ if [ $SPARTA_CONFIG_READ_OK == 0 ]; then
     $ECHO "Please discuss this fault with a Nexenta support engineer."
     exit 1
 fi
+
+#
+# Handling a SIGTERM signal
+#
+function shutdown_sparta
+{
+    PREFIX="${PREFIX}`date +%Y-%m-%d_%H:%M:%S` "
+    $ECHO "${PREFIX}sigterm received - stopping sparta" >> $SPARTA_LOG
+    $LOG_SCRIPTS/sparta.sh stop >> $SPARTA_LOG 2>&1
+    logger -p daemon.notice "SPARTA shutdown requested."
+    exit 0
+}
+
+trap shutdown_sparta SIGTERM SIGHUP
 
 #
 # Sleep period between sampling the current pool capacity (in seconds).
@@ -75,5 +89,6 @@ do
     #
     # All is well, sleep until next check
     #
-    sleep $WATCHDOG_SLEEP_PERIOD
+    sleep $WATCHDOG_SLEEP_PERIOD & wait $!
 done
+
