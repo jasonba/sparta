@@ -4,7 +4,7 @@
 # Program	: sparta.sh
 # Author	: Jason.Banham@Nexenta.COM
 # Date		: 2013-02-04 - 2014-01-07
-# Version	: 0.28
+# Version	: 0.29
 # Usage		: sparta.sh [ -h | -help | start | status | stop | tarball ]
 # Purpose	: Gather performance statistics for a NexentaStor appliance
 # Legal		: Copyright 2013 and 2014, Nexenta Systems, Inc. 
@@ -48,11 +48,16 @@
 #			 the collection/launching of those scripts.
 #		  0.27 - Added -P <protocol> switch to specific which protocols to enable (nfs,cifs,iscsi)
 #		  0.28 - Added -S switch and stmf to protocol switch to allow for STMF/COMSTAR scripts
+#		  0.29 - Modified how we invoke the auto-updater to pass in the input args to SPARTA
 #		  
 #
 
+# 
+# Save the input arguments for passing into auto-updater, if required
+#
+INPUT_ARGS="$*"
+
 SPARTA_CONFIG_READ_OK=0
-echo $IFS
 
 #
 # Configuration file locations 
@@ -1143,7 +1148,7 @@ if [ "$UPDATE_OPT" == "yes" ]; then
 	        # so lets invoke the auto-install utility to get upto date binaries
 	        #
 		chmod 700 $SPARTA_UPDATER
-                exec $SPARTA_UPDATER $SPARTA_FILE /tmp/$SPARTA_HASH
+                exec $SPARTA_UPDATER $SPARTA_FILE /tmp/$SPARTA_HASH $INPUT_ARGS
             else
                 $ECHO "Unable to download the auto-updater"
             fi
