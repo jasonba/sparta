@@ -1093,7 +1093,7 @@ function launch_stmf_task_time
 
 ### CIFS specific scripts defined here
 
-function launch_cifstop
+function launch_cifs_top
 {
     CIFS_TOP_PID="`pgrep -fl 'dtrace .* cifssvrtop' | awk '{print $1}'`"
     if [ "x$CIFS_TOP_PID" == "x" ]; then
