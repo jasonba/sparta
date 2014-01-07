@@ -184,5 +184,6 @@ $COPY $HASH_FILE $LOG_CONFIG/sparta.hash
 
 $ECHO "done"
 $ECHO "Restarting SPARTA with the new version"
-
+$ECHO $LOG_SCRIPTS/sparta.sh $INPUT_ARGS
+set +x
 exec $LOG_SCRIPTS/sparta.sh $INPUT_ARGS
