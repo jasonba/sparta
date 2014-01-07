@@ -38,6 +38,7 @@ NFS, CIFS or iSCSI monitoring thus:
    sparta.sh -N	start : Enable NFS scripts
    sparta.sh -C start : Enable CIFS scripts
    sparta.sh -I start : Enable iSCSI scripts
+   sparta.sh -S start : Enable STMF (COMSTAR) scripts
         
 *** NOTE ***
   These will be in *addition* to any pre-configured protocol that may have been
@@ -60,7 +61,7 @@ There are additional switches that may be supplied to sparta.sh thus:
 			# sparta.sh -p vmachines,datstore
 
   -P <protocol_list>	: Enable explicit protocol tools for the given list
-		 	  of protcols (cifs, iscsi or nfs), separated by
+		 	  of protcols (cifs, iscsi, nfs or stmf), separated by
 			  commas, eg:
 
 			# sparta.sh -P nfs,cifs

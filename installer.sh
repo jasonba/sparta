@@ -59,6 +59,7 @@ SPARTA_TEMPLATE=$LOG_CONFIG/sparta.config.template
 SCRIPTS="arcstat.pl arc_adjust.v2.d arc_evict.d cifssvrtop dnlc_lookups.d iscsisvrtop kmem_reap_100ms.d large_delete.d txg_monitor.v3.d hotkernel.priv lockstat_sparta.sh metaslab.sh nfsio.d nfssrvutil.d nfssvrtop nfsrwtime.d sbd_zvol_unmap.d sparta.sh sparta_shield.sh stmf_task_time.d zil_commit_time.d zil_stat.d"
 CONFIG_FILES="sparta.config"
 TEMPLATE_FILES="README_WORKLOADS light"
+README="README"
 
 $ZFS get -H type $LOG_DATASET > /dev/null 2>&1
 if [ $? -ne 0 ]; then
@@ -129,6 +130,7 @@ $ECHO "(Any other letter to skip this section)\n"
 $ECHO "\t(N)FS"
 $ECHO "\t(C)IFS"
 $ECHO "\t(I)SCSI"
+$ECHO "\t(S)TMF"
 
 $ECHO "\nEnter the initial letter of the service you wish to monitor: \c"
 
@@ -138,6 +140,7 @@ SERVICE_ANS="`$ECHO $SERVICE_ANS | $TR '[:upper:]' '[:lower:]'`"
 TRACE_NFS=n
 TRACE_CIFS=n
 TRACE_ISCSI=n
+TRACE_STMF=n
 
 case $SERVICE_ANS in
     n ) TRACE_NFS=y
@@ -145,6 +148,8 @@ case $SERVICE_ANS in
     c ) TRACE_CIFS=y
 	;;
     i ) TRACE_ISCSI=y
+	;;
+    s ) TRACE_STMF=y
 	;;
     * ) SERVICE_SED_STRING="willrobinson"
 	;;
@@ -198,7 +203,7 @@ $ECHO "ZPOOL_NAME=$ZPOOL_NAME" > $LOG_CONFIG/.zpool_to_monitor
 #
 # By now the $LOG_CONFIG directory should be present, so store our service preferences
 #
-$ECHO "TRACE_NFS=${TRACE_NFS}\nTRACE_CIFS=${TRACE_CIFS}\nTRACE_ISCSI=${TRACE_ISCSI}" > $LOG_CONFIG/.services_to_monitor
+$ECHO "TRACE_NFS=${TRACE_NFS}\nTRACE_CIFS=${TRACE_CIFS}\nTRACE_ISCSI=${TRACE_ISCSI}\nTRACE_STMF=${TRACE_STMF}" > $LOG_CONFIG/.services_to_monitor
 
 
 $ECHO "\nWould you like me to run the performance gathering script? (y|n) \c"

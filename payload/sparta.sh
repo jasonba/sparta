@@ -3,11 +3,11 @@
 #
 # Program	: sparta.sh
 # Author	: Jason.Banham@Nexenta.COM
-# Date		: 2013-02-04 - 2014-01-06
-# Version	: 0.27
+# Date		: 2013-02-04 - 2014-01-07
+# Version	: 0.28
 # Usage		: sparta.sh [ -h | -help | start | status | stop | tarball ]
 # Purpose	: Gather performance statistics for a NexentaStor appliance
-# Legal		: Copyright 2013, Nexenta Systems, Inc. 
+# Legal		: Copyright 2013 and 2014, Nexenta Systems, Inc. 
 #
 # History	: 0.01 - Initial version
 #		  0.02 - Added DNLC lookup and prstat functions
@@ -47,6 +47,7 @@
 #		         Created a new set of variables in sparta.config to enable (1) or disable (0)
 #			 the collection/launching of those scripts.
 #		  0.27 - Added -P <protocol> switch to specific which protocols to enable (nfs,cifs,iscsi)
+#		  0.28 - Added -S switch and stmf to protocol switch to allow for STMF/COMSTAR scripts
 #		  
 #
 
@@ -87,7 +88,7 @@ fi
 #
 function usage
 {
-    $ECHO "Usage: `basename $0` [-h] [-C|-I|-N] [-p zpoolname] -u [ yes | no ] [-P protocol,protocol...] { start | stop | status | tarball | version }\n"
+    $ECHO "Usage: `basename $0` [-h] [-C|-I|-N|-S] [-p zpoolname] -u [ yes | no ] [-P protocol,protocol...] { start | stop | status | tarball | version }\n"
 }
 
 #
@@ -114,9 +115,10 @@ function help
     $ECHO "  -C              : Enable CIFS data collection (in addition to existing protocols)"
     $ECHO "  -I              : Enable iSCSI data collection (in addition to existing protocols)"
     $ECHO "  -N              : Enable NFS data collection (in addition to existing protocols)"
+    $ECHO "  -S		     : Enable STMF (COMSTAR) data collection (in addition to existing protocols)"
     $ECHO "  -p <zpoolname>  : Monitor the given ZFS pool(s)"
     $ECHO "  -u [ yes | no ] : Enable or disable the automatic update feature"
-    $ECHO "  -P <protocol>   : Enable *only* the given protocol(s) nfs iscsi cifs or a combination"
+    $ECHO "  -P <protocol>   : Enable *only* the given protocol(s) nfs iscsi cifs stmf or a combination"
     $ECHO "                    of multiple protocols, eg: -P nfs,cifs"
     $ECHO ""
     $ECHO "  -v              : display the version."
@@ -483,6 +485,7 @@ do
 		TRACE_CIFS="n"
 		TRACE_ISCSI="n"
 		TRACE_NFS="n"
+		TRACE_STMF="n"
 
     		IFS=",  ^M"
 		for protocol in $OPTARG
@@ -494,13 +497,17 @@ do
 				;;
 			nfs   ) TRACE_NFS="y"
 			        ;;
-			all  ) TRACE_CIFS="y"
+			stmf  ) TRACE_STMF="y"
+				;;
+			all   ) TRACE_CIFS="y"
 				TRACE_ISCSI="y"
 				TRACE_NFS="y"
+				TRACE_STMF="y"
 				;;
 			none  ) TRACE_CIFS="n"
 				TRACE_ISCSI="n"
 				TRACE_NFS="n"
+				TRACE_STMF="n"
 				;;
 		    esac
 		done
@@ -1055,6 +1062,35 @@ function launch_iscsitop
 }
 
 
+### COMSTAR/STMF/SBD specific scripts defined here
+
+function launch_sbd_zvol_unmap
+{
+    PGREP_STRING="dtrace .*$SBD_ZVOL_UNMAP"
+    SBD_ZVOL_UNMAP_PID="`pgrep -fl "$PGREP_STRING" | awk '{print $1}'`"
+    if [ "x$SBD_ZVOL_UNMAP_PID" == "x" ]; then
+        print_to_log "$SBD_ZVOL_UNMAP starting" $LOG_DIR/$SAMPLE_DAY/sbd_zvol_unmap.out $FF_DATE_SEP
+	$SBD_ZVOL_UNMAP >> $LOG_DIR/$SAMPLE_DAY/sbd_zvol_unmap.out &
+	print_to_log "  Started sbd_zvol_unmap monitoring" $SPARTA_LOG $FF_DATE
+    else    
+	print_to_log "  sbd_zvol_unmap monitoring already running as PID $SBD_ZVOL_UNMAP_PID" $SPARTA_LOG $FF_DATE
+    fi
+}
+
+function launch_stmf_task_time
+{
+    PGREP_STRING="dtrace .*$STMF_TASK_TIME"
+    STMF_TASK_TIME_PID="`pgrep -fl "$PGREP_STRING" | awk '{print $1}'`"
+    if [ "x$STMF_TASK_TIME_PID" == "x" ]; then
+        print_to_log "$STMF_TASK_TIME starting" $LOG_DIR/$SAMPLE_DAY/stmf_task_time.out $FF_DATE_SEP
+	$STMF_TASK_TIME >> $LOG_DIR/$SAMPLE_DAY/stmf_task_time.out &
+	print_to_log "  Started stmf_task_time monitoring" $SPARTA_LOG $FF_DATE
+    else    
+	print_to_log "  stmf_task_time monitoring already running as PID $STMF_TASK_TIME_PID" $SPARTA_LOG $FF_DATE
+    fi
+}
+
+
 ### CIFS specific scripts defined here
 
 function launch_cifstop
@@ -1252,8 +1288,8 @@ fi
 # Determine whether we're performing extended iSCSI monitoring using dtrace
 #
 
-ISCSISRV_LOADED="`$MODINFO | awk '/stmf \(COMSTAR STMF\)/ {print $6}'`"
-if [ "$TRACE_ISCSI" == "y" -a "x$ISCSISRV_LOADED" == "xstmf" ]; then
+ISCSISRV_LOADED="`$MODINFO | awk '/iscsit \(iSCSI Target\)/ {print $6}'`"
+if [ "$TRACE_ISCSI" == "y" -a "x$ISCSISRV_LOADED" == "xiscsit" ]; then
     $ECHO "Starting iSCSI data gathering \c"
     array_limit=$(expr ${#ISCSI_ENABLE_LIST[@]} - 1)
     for item in `seq 0 $array_limit`
@@ -1269,10 +1305,30 @@ fi
 
 
 #
+# Determine whether we're performing extended COMSTAR monitoring using dtrace
+#
+
+STMFSRV_LOADED="`$MODINFO | awk '/stmf \(COMSTAR STMF\)/ {print $6}'`"
+if [ "$TRACE_STMF" == "y" -a "x$STMFSRV_LOADED" == "xstmf" ]; then
+    $ECHO "Starting COMSTAR data gathering \c"
+    array_limit=$(expr ${#COMSTAR_ENABLE_LIST[@]} - 1)
+    for item in `seq 0 $array_limit`
+    do
+        if [ ${COMSTAR_ENABLE_LIST[$item]} -eq 1 ]; then
+            do_log ${COMSTAR_NAME_LIST[$item]}
+            ${COMSTAR_COMMAND_LIST[$item]} ${COMSTAR_NAME_LIST[$item]}
+            $ECHO ".\c"
+        fi
+    done
+    $ECHO " done"
+fi
+
+
+#
+#
 # Determine whether we're performing extended CIFS monitoring using dtrace
 # and collecting other CIFS statistics
 #
-
 CIFSSRV_LOADED="`$MODINFO | awk '/smbsrv \(CIFS Server Protocol\)/ {print $6}'`"
 if [ "$TRACE_CIFS" == "y" -a "x$CIFSSRV_LOADED" == "xsmbsrv" ]; then
     $ECHO "Starting CIFS data gathering \c"
