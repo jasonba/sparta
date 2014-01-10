@@ -3,8 +3,8 @@
 #
 # Program	: sparta.sh
 # Author	: Jason.Banham@Nexenta.COM
-# Date		: 2013-02-04 - 2014-01-07
-# Version	: 0.29
+# Date		: 2013-02-04 - 2014-01-10
+# Version	: 0.30
 # Usage		: sparta.sh [ -h | -help | start | status | stop | tarball ]
 # Purpose	: Gather performance statistics for a NexentaStor appliance
 # Legal		: Copyright 2013 and 2014, Nexenta Systems, Inc. 
@@ -49,6 +49,7 @@
 #		  0.27 - Added -P <protocol> switch to specific which protocols to enable (nfs,cifs,iscsi)
 #		  0.28 - Added -S switch and stmf to protocol switch to allow for STMF/COMSTAR scripts
 #		  0.29 - Modified how we invoke the auto-updater to pass in the input args to SPARTA
+#		  0.30 - Added additional comstar scripts
 #		  
 #
 
@@ -1093,6 +1094,18 @@ function launch_stmf_task_time
     else    
 	print_to_log "  stmf_task_time monitoring already running as PID $STMF_TASK_TIME_PID" $SPARTA_LOG $FF_DATE
     fi
+}
+
+function gather_stmf_workers
+{
+    for x in {1..10}
+    do
+        print_to_log "  stmf current worker backlog statistics - sample ${x}" $SPARTA_LOG $FF_DATE
+        print_to_log "stmf current worker backlog info - sample ${x}" $LOG_DIR/$SAMPLE_DAY/stmf_worker_backlog.out $FF_DATE_SEP
+        $ECHO "stmf_cur_ntasks::print -d" | $MDB -k >> $LOG_DIR/$SAMPLE_DAY/stmf_worker_backlog.out
+        $ECHO ".\c"
+        cursor_pause 5
+    done
 }
 
 
