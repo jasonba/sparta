@@ -3,15 +3,11 @@
 #
 # Program	: auto-installer.sh
 # Author	: Jason Banham
-# Date		: 2013-11-04 : 2014-01-07
-# Version	: 0.05
+# Date		: 2013-10-21
+# Version	: 0.01
 # Usage		: auto-installer.sh <tarball>
 # Purpose	: Companion script to SPARTA for auto-installing a new sparta.tar.gz file
 # History	: 0.01 - Initial version, based on the installer.sh script
-#		  0.02 - Altered call method for starting sparta.sh (removed -c switch)
-#		  0.03 - Modified how we call sparta.sh to save input args and reinvoke with the same
-#		  0.04 - Modifed CHMOD to work on NexentaStor 4
-#                 0.05 - Added test for NexentaStor 4 for arc_adjust*.d script
 #
 
 #
@@ -21,7 +17,6 @@ LOG_DIR=/perflogs
 LOG_DATASET=syspool/perflogs
 LOG_CONFIG=${LOG_DIR}/etc
 LOG_SCRIPTS=${LOG_DIR}/scripts
-LOG_TEMPLATES=${LOG_DIR}/workload_templates
 
 #
 # How much space needs to be available to start logging data (in bytes)
@@ -39,7 +34,7 @@ COPY=/usr/bin/cp
 SED=/usr/bin/sed
 TAR=/usr/sbin/tar
 TAR_OPTS="zxf"
-TEMP_DIR=/tmp/sparta.auto
+TEMP_DIR=/tmp
 TR=/usr/bin/tr
 ZFS=/usr/sbin/zfs
 ZPOOL=/usr/sbin/zpool
@@ -58,39 +53,25 @@ SPARTA_TEMPLATE=$LOG_CONFIG/sparta.config.template
 #
 # Scripts and files to install
 #
-SCRIPTS="arcstat.pl arc_adjust.v2.d arc_adjust_ns4.v2.d arc_evict.d cifssvrtop dnlc_lookups.d iscsisvrtop kmem_reap_100ms.d large_delete.d txg_monitor.v3.d hotkernel.priv lockstat_sparta.sh metaslab.sh nfsio.d nfssrvutil.d nfssvrtop nfsrwtime.d sbd_zvol_unmap.d sparta.sh sparta_shield.sh stmf_task_time.d zil_commit_time.d zil_stat.d"
+SCRIPTS="auto-installer.sh arcstat.pl arc_adjust.v2.d arc_evict.d cifssvrtop dnlc_lookups.d iscsisvrtop kmem_reap_100ms.d large_delete.d txg_monitor.v3.d hotkernel.priv lockstat_sparta.sh metaslab.sh nfsio.d nfssrvutil.d nfssvrtop nfsrwtime.d sparta.sh zil_commit_time.d zil_stat.d"
 CONFIG_FILES="sparta.config"
 README="README"
-TEMPLATE_FILES="README_WORKLOADS light"
 
 
 # 
 # Sanity checks
 #
-if [ $# -lt 2 ]; then
-    $ECHO "Missing tarball and sparta hash file"
+if [ "x$1" == "x" ]; then
+    $ECHO "No tarball supplied, must exit"
     exit 1
 else
     TARBALL="$1"
-    HASH_FILE="$2"
 fi
 
 if [ ! -r $TARBALL ]; then
     $ECHO "Unable to read $TARBALL"
     exit 1
 fi
-if [ ! -r $HASH_FILE ]; then
-    $ECHO "Unable to read $HASH_FILE"
-    exit 1
-fi
-
-#
-# We got through the tarball and hash file checks, so now we need to shift the input
-# arguments by two to grab the passed in input arguments from the original sparta.sh
-# script, so we know how to re-invoke SPARTA after an update
-#
-shift ; shift
-INPUT_ARGS="$*"
 
 
 $ZFS get -H type $LOG_DATASET > /dev/null 2>&1
@@ -127,8 +108,7 @@ $CHOWN root $LOG_DIR
 #
 # Unpack SPARTA tarball
 #
-mkdir $TEMP_DIR > /dev/null 2>&1
-cd $TEMP_DIR
+$CD $TEMP_DIR
 $TAR $TAR_OPTS $TARBALL > /dev/null 2>&1
 if [ $? -ne 0 ]; then
     $ECHO "tarball extraction failed"
@@ -143,9 +123,6 @@ fi
 if [ ! -d $LOG_CONFIG ]; then
     mkdir $LOG_CONFIG
 fi
-if [ ! -d $LOG_TEMPLATES ]; then
-    mkdir $LOG_TEMPLATES
-fi
 
 cp $README $LOG_DIR/
 
@@ -154,14 +131,6 @@ do
     $COPY payload/$script $LOG_SCRIPTS/
     if [ $? -ne 0 ]; then
 	$ECHO "Failed to install $script"
-    fi
-done
-
-for template in $TEMPLATE_FILES
-do
-    $COPY payload/workload_templates/$template $LOG_TEMPLATES/
-    if [ $? -ne 0 ]; then
-        $ECHO "Failed to copy $template"
     fi
 done
 
@@ -182,8 +151,6 @@ do
     fi
 done
 
-$COPY $HASH_FILE $LOG_CONFIG/sparta.hash
-
 $ECHO "done"
-$ECHO "Restarting SPARTA with the new version"
-exec $LOG_SCRIPTS/sparta.sh $INPUT_ARGS
+
+exit 0
