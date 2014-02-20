@@ -4,12 +4,13 @@
 # Program	: auto-installer.sh
 # Author	: Jason Banham
 # Date		: 2013-11-04 : 2014-01-07
-# Version	: 0.03
+# Version	: 0.04
 # Usage		: auto-installer.sh <tarball>
 # Purpose	: Companion script to SPARTA for auto-installing a new sparta.tar.gz file
 # History	: 0.01 - Initial version, based on the installer.sh script
 #		  0.02 - Altered call method for starting sparta.sh (removed -c switch)
 #		  0.03 - Modified how we call sparta.sh to save input args and reinvoke with the same
+#		  0.04 - Modifed CHMOD to work on NexentaStor 4
 #
 
 #
@@ -31,7 +32,7 @@ LOG_SPACE_MIN=1073741824
 #
 CAT=/usr/bin/cat
 CD=/usr/bin/cd
-CHMOD=/usr/sun/bin/chmod
+CHMOD=/usr/bin/chmod
 CHOWN=/usr/bin/chown
 COPY=/usr/bin/cp
 SED=/usr/bin/sed
