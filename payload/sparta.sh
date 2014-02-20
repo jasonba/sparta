@@ -730,6 +730,7 @@ function launch_lockstat
 
 function gather_taskq
 {
+    print_to_log "MDB taskq info" $LOG_DIR/mdb/${1}.out
     $ECHO "::taskq" | $MDB -k > $LOG_DIR/mdb/${1}.out
 }
 
@@ -760,7 +761,7 @@ function gather_kernel_mdb
 
 function gather_ifconfig
 {
-    $IFCONFIG -a > $LOG_DIR/$SAMPLE_DAY/${1}-a.out
+    $IFCONFIG -a > $LOG_DIR/$SAMPLE_DAY/${1}.out
 }
 
 function gather_dladm
@@ -1240,7 +1241,6 @@ array_limit=$(expr ${#KERNEL_ENABLE_LIST[@]} - 1)
 for item in `seq 0 $array_limit`
 do
     if [ ${KERNEL_ENABLE_LIST[$item]} -eq 1 ]; then
-	do_log ${KERNEL_NAME_LIST[$item]}
 	${KERNEL_COMMAND_LIST[$item]} ${KERNEL_NAME_LIST[$item]}
 	$ECHO ".\c"
     fi
@@ -1371,7 +1371,7 @@ array_limit=$(expr ${#ZFS_ENABLE_LIST[@]} - 1)
 for item in `seq 0 $array_limit`
 do
     if [ ${ZFS_ENABLE_LIST[$item]} -eq 1 ]; then
-	do_log ${ZFS_NAME_LIST[$item]}
+#	do_log ${ZFS_NAME_LIST[$item]}
 	${ZFS_COMMAND_LIST[$item]} ${ZFS_NAME_LIST[$item]}
         $ECHO ".\c"
     fi
@@ -1387,7 +1387,6 @@ array_limit=$(expr ${#NETWORK_ENABLE_LIST[@]} - 1)
 for item in `seq 0 $array_limit`
 do
     if [ ${NETWORK_ENABLE_LIST[$item]} -eq 1 ]; then
-	do_log ${NETWORK_NAME_LIST[$item]}
 	${NETWORK_COMMAND_LIST[$item]} ${NETWORK_NAME_LIST[$item]}
 	$ECHO ".\c"
     fi

@@ -4,7 +4,7 @@
 # Program	: installer.sh
 # Author	: Jason Banham
 # Date		: 2013-01-04 | 2013-11-09
-# Version	: 0.07
+# Version	: 0.08
 # Usage		: installer.sh [<zpool name>]
 # Purpose	: Gather performance statistics for a NexentaStor appliance
 # History	: 0.01 - Initial version
@@ -14,6 +14,7 @@
 #		  0.05 - Adjusted how we call sparta.sh script
 #		  0.06 - Corrected sparta_shield.sh filename for installer
 #		  0.07 - Corrected logic error when saving data in .services_to_monitor
+#		  0.08 - Modified use of CHMOD
 #
 
 #
@@ -34,7 +35,7 @@ LOG_SPACE_MIN=1073741824
 # Where our binaries live
 #
 CAT=/usr/bin/cat
-CHMOD=/usr/sun/bin/chmod
+CHMOD=/usr/bin/chmod
 CHOWN=/usr/bin/chown
 COPY=/usr/bin/cp
 SED=/usr/bin/sed
