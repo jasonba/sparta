@@ -3,8 +3,8 @@
 #
 # Program	: installer.sh
 # Author	: Jason Banham
-# Date		: 2013-01-04 | 2013-11-09
-# Version	: 0.09
+# Date		: 2013-01-04 | 2013-04-07
+# Version	: 0.10
 # Usage		: installer.sh [<zpool name>]
 # Purpose	: Gather performance statistics for a NexentaStor appliance
 # History	: 0.01 - Initial version
@@ -16,6 +16,8 @@
 #		  0.07 - Corrected logic error when saving data in .services_to_monitor
 #		  0.08 - Modified use of CHMOD
 #		  0.09 - Added test for NexentaStor 4 for arc_adjust*.d script
+#		  0.10 - Added an ignore/skip option to pool selection for when a data
+#		         pool has not yet been created
 #
 
 #
@@ -102,10 +104,15 @@ if [ "x$1" == "x" ]; then
     while [ `echo $ANS | wc -c` -lt 2 ]; do
         $ECHO "Here are the available (non syspool) volumes (zpools) on this appliance:"
         $ZPOOL list | grep -v syspool
-        $ECHO "\nPlease enter the name of the volume (zpool) to monitor? : \c "
+        $ECHO "\nPlease enter the name of the volume (zpool) to monitor"
+	$ECHO "or enter none if no data pool exists : \c "
         read ANS
 	if [ `echo $ANS | wc -c` -lt 2 ]; then
 	    continue;
+	fi
+        if [ "$ANS" == "none" ]; then
+	    ZPOOL_NAME="syspool"		# Default to syspool so we have something
+	    break				# but likely to give unsatisfying results
 	fi
         ZPOOL_EXIST="`$ZPOOL list -H $ANS > /dev/null 2>&1`"
         if [ $? -ne 0 ]; then

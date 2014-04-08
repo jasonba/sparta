@@ -3,8 +3,8 @@
 #
 # Program	: sparta.sh
 # Author	: Jason.Banham@Nexenta.COM
-# Date		: 2013-02-04 - 2014-01-10
-# Version	: 0.30
+# Date		: 2013-02-04 - 2014-04-08
+# Version	: 0.32
 # Usage		: sparta.sh [ -h | -help | start | status | stop | tarball ]
 # Purpose	: Gather performance statistics for a NexentaStor appliance
 # Legal		: Copyright 2013 and 2014, Nexenta Systems, Inc. 
@@ -50,6 +50,8 @@
 #		  0.28 - Added -S switch and stmf to protocol switch to allow for STMF/COMSTAR scripts
 #		  0.29 - Modified how we invoke the auto-updater to pass in the input args to SPARTA
 #		  0.30 - Added additional comstar scripts
+#		  0.31 - Fixed NULL file logging problems
+#		  0.32 - Changed lockstat monitoring to be disabled by default
 #		  
 #
 
@@ -647,8 +649,11 @@ esac
 function do_log
 {
     MONITOR_NAME="$1"
+    if [ "$MONITOR_NAME" == "NULL" ]; then
+	return 0
+    fi
     print_to_log "$MONITOR_NAME data gathering" $SPARTA_LOG $FF_DATE
-    print_to_log "$MONITOR_COMMAND $MONITOR_OPTS" $LOG_DIR/$SAMPLE_DAY/${MONITOR_NAME}.out $FF_DATE_SEP
+    print_to_log "$MONITOR_COMMAND $MONITOR_OPTS" $LOG_DIR/$SAMPLE_DAY/${MONITOR_NAME} $FF_DATE_SEP
 }
 
 ### CPU/load specific section
@@ -664,7 +669,7 @@ function launch_vmstat
 {
     $PGREP -fl "$VMSTAT $VMSTAT_OPTS" > /dev/null 2>&1
     if [ $? -ne 0 ]; then
-        $VMSTAT $VMSTAT_OPTS >> $LOG_DIR/$SAMPLE_DAY/${1}.out 2>&1 &
+        $VMSTAT $VMSTAT_OPTS >> $LOG_DIR/$SAMPLE_DAY/${1} 2>&1 &
     fi
 }
 
@@ -672,7 +677,7 @@ function launch_mpstat
 {
     $PGREP -fl "$MPSTAT $MPSTAT_OPTS" > /dev/null 2>&1
     if [ $? -ne 0 ]; then
-        $MPSTAT $MPSTAT_OPTS >> $LOG_DIR/$SAMPLE_DAY/${1}.out 2>&1 &
+        $MPSTAT $MPSTAT_OPTS >> $LOG_DIR/$SAMPLE_DAY/${1} 2>&1 &
     fi
 }
 
@@ -680,23 +685,23 @@ function launch_prstat
 {
     $PGREP -fl "$PRSTAT $PRSTAT_OPTS" > /dev/null 2>&1
     if [ $? -ne 0 ]; then
-        $PRSTAT $PRSTAT_OPTS >> $LOG_DIR/$SAMPLE_DAY/${1}.out 2>&1 &
+        $PRSTAT $PRSTAT_OPTS >> $LOG_DIR/$SAMPLE_DAY/${1} 2>&1 &
     fi
 }
 
 function gather_psrinfo
 {
-    $PSRINFO $PSRINFO_OPTS > $LOG_DIR/$SAMPLE_DAY/${1}.out 2>&1
+    $PSRINFO $PSRINFO_OPTS > $LOG_DIR/$SAMPLE_DAY/${1} 2>&1
 }
 
 function gather_cstate
 {
-    $KSTAT | grep -i cstate > $LOG_DIR/$SAMPLE_DAY/${1}.out 2>&1
+    $KSTAT | grep -i cstate > $LOG_DIR/$SAMPLE_DAY/${1} 2>&1
 }
 
 function gather_interrupts
 {
-    $ECHO "::interrupts -d" | $MDB -k > $LOG_DIR/mdb/${1}.out 2>&1
+    $ECHO "::interrupts -d" | $MDB -k > $LOG_DIR/$SAMPLE_DAY/${1} 2>&1
 }
 
 
@@ -706,8 +711,8 @@ function launch_hotkernel
 {
     for x in {1..3}
     do
-        print_to_log "Sample $x" $LOG_DIR/$SAMPLE_DAY/${1}.out $FF_DATE_SEP
-        $HOTKERNEL >> $LOG_DIR/$SAMPLE_DAY/$1.out 2>&1 &
+        print_to_log "Sample $x" $LOG_DIR/$SAMPLE_DAY/${1} $FF_DATE_SEP
+        $HOTKERNEL >> $LOG_DIR/$SAMPLE_DAY/$1 2>&1 &
         $ECHO ". \c"
         let count=0
         while [ $count -lt $HOTKERNEL_SAMPLE_TIME ]; do
@@ -730,16 +735,16 @@ function launch_lockstat
 
 function gather_taskq
 {
-    print_to_log "MDB taskq info" $LOG_DIR/mdb/${1}.out
-    $ECHO "::taskq" | $MDB -k > $LOG_DIR/mdb/${1}.out
+    print_to_log "MDB taskq info" $LOG_DIR/mdb/taskq.out
+    $ECHO "::taskq" | $MDB -k > $LOG_DIR/mdb/taskq.out
 }
 
 function launch_kmem_reap
 {
     KMEM_REAP_PID="`pgrep -fl $KMEM_REAP | awk '{print $1}'`"
     if [ "x$KMEM_REAP_PID" == "x" ]; then
-        print_to_log "kmem_reap" $LOG_DIR/$SAMPLE_DAY/${1}.out $FF_DATE_SEP
-        $KMEM_REAP >> $LOG_DIR/$SAMPLE_DAY/${1}.out 2>&1 &
+        print_to_log "kmem_reap" $LOG_DIR/$SAMPLE_DAY/${1} $FF_DATE_SEP
+        $KMEM_REAP >> $LOG_DIR/$SAMPLE_DAY/${1} 2>&1 &
         print_to_log "  Started kmem_reap monitoring" $SPARTA_LOG $FF_DATE
     else
         print_to_log "  kmem_reap already running as PID $KMEM_REAP_PID" $SPARTA_LOG $FF_DATE
@@ -761,14 +766,14 @@ function gather_kernel_mdb
 
 function gather_ifconfig
 {
-    $IFCONFIG -a > $LOG_DIR/$SAMPLE_DAY/${1}.out
+    $IFCONFIG -a > $LOG_DIR/$SAMPLE_DAY/${1}
 }
 
 function gather_dladm
 {
-    $DLADM show-phys > $LOG_DIR/$SAMPLE_DAY/${1}-show-phys.out
-    $DLADM show-link > $LOG_DIR/$SAMPLE_DAY/${1}-show-link.out
-    $DLADM show-linkprop > $LOG_DIR/$SAMPLE_DAY/${1}-show-linkprop.out
+    $DLADM show-phys > $LOG_DIR/$SAMPLE_DAY/dladm-show-phys.out
+    $DLADM show-link > $LOG_DIR/$SAMPLE_DAY/dladm-show-link.out
+    $DLADM show-linkprop > $LOG_DIR/$SAMPLE_DAY/dladm-show-linkprop.out
 }
 
 
@@ -799,8 +804,8 @@ function launch_txg_monitor
         PGREP_STRING="$TXG_MON $poolname"
         TXG_MON_PID="`pgrep -fl "$PGREP_STRING" | awk '{print $1}'`"
         if [ "x$TXG_MON_PID" == "x" ]; then
-            print_to_log "$TXG_MON on zpool $poolname" $LOG_DIR/$SAMPLE_DAY/${1}_${poolname}.out $FF_DATE_SEP
-            $TXG_MON $poolname >> $LOG_DIR/$SAMPLE_DAY/${1}_${poolname}.out 2>&1 &
+            print_to_log "$TXG_MON on zpool $poolname" $LOG_DIR/$SAMPLE_DAY/zpool_${poolname}.out $FF_DATE_SEP
+            $TXG_MON $poolname >> $LOG_DIR/$SAMPLE_DAY/zpool_${poolname}.out 2>&1 &
             print_to_log "  Started txg_monitoring on $poolname" $SPARTA_LOG $FF_DATE
         else
             print_to_log "  txg_monitor already running for zpool $poolname as PID $TXG_MON_PID" $SPARTA_LOG $FF_DATE
@@ -817,8 +822,8 @@ function launch_metaslab
         PGREP_STRING="$METASLAB_ALLOC -p $poolname"
         METASLAB_MON_PID="`pgrep -fl "$PGREP_STRING" | awk '{print $1}'`"
         if [ "x$METASLAB_MON_PID" == "x" ]; then
-            print_to_log "$METASLAB_ALLOC on zpool $poolname" $LOG_DIR/$SAMPLE_DAY/${1}_${poolname}.out $FF_DATE_SEP
-            $METASLAB_ALLOC -p $poolname >> $LOG_DIR/$SAMPLE_DAY/${1}_${poolname}.out 2>&1 &
+            print_to_log "$METASLAB_ALLOC on zpool $poolname" $LOG_DIR/$SAMPLE_DAY/metaslab_${poolname}.out $FF_DATE_SEP
+            $METASLAB_ALLOC -p $poolname >> $LOG_DIR/$SAMPLE_DAY/metaslab_${poolname}.out 2>&1 &
             print_to_log "  Started metaslab monitoring on $poolname" $SPARTA_LOG $FF_DATE
         else
             print_to_log "  metaslab monitoring already running for zpool $poolname as PID $METASLAB_MON_PID" $SPARTA_LOG $FF_DATE
@@ -1241,6 +1246,7 @@ array_limit=$(expr ${#KERNEL_ENABLE_LIST[@]} - 1)
 for item in `seq 0 $array_limit`
 do
     if [ ${KERNEL_ENABLE_LIST[$item]} -eq 1 ]; then
+        do_log ${KERNEL_NAME_LIST[$item]}
 	${KERNEL_COMMAND_LIST[$item]} ${KERNEL_NAME_LIST[$item]}
 	$ECHO ".\c"
     fi
@@ -1256,7 +1262,7 @@ array_limit=$(expr ${#OS_ENABLE_LIST[@]} - 1)
 for item in `seq 0 $array_limit`
 do
     if [ ${OS_ENABLE_LIST[$item]} -eq 1 ]; then
-	do_log ${OS_NAME_LIST[$item]}
+        do_log ${OS_NAME_LIST[$item]}
 	${OS_COMMAND_LIST[$item]} ${OS_NAME_LIST[$item]}
         $ECHO ".\c"
     fi
@@ -1272,7 +1278,7 @@ array_limit=$(expr ${#DISK_ENABLE_LIST[@]} - 1)
 for item in `seq 0 $array_limit`
 do
     if [ ${DISK_ENABLE_LIST[$item]} -eq 1 ]; then
-	do_log ${DISK_NAME_LIST[$item]}
+        do_log ${DISK_NAME_LIST[$item]}
 	${DISK_COMMAND_LIST[$item]} ${DISK_NAME_LIST[$item]}
         $ECHO ".\c"
     fi
@@ -1293,7 +1299,6 @@ if [ "$TRACE_NFS" == "y" -a "x$NFSSRV_LOADED" == "xnfssrv" ]; then
     for item in `seq 0 $array_limit`
     do
         if [ ${NFS_ENABLE_LIST[$item]} -eq 1 ]; then
-            do_log ${NFS_NAME_LIST[$item]}
             ${NFS_COMMAND_LIST[$item]} ${NFS_NAME_LIST[$item]}
             $ECHO ".\c"
         fi
@@ -1313,7 +1318,6 @@ if [ "$TRACE_ISCSI" == "y" -a "x$ISCSISRV_LOADED" == "xiscsit" ]; then
     for item in `seq 0 $array_limit`
     do
         if [ ${ISCSI_ENABLE_LIST[$item]} -eq 1 ]; then
-            do_log ${ISCSI_NAME_LIST[$item]}
             ${ISCSI_COMMAND_LIST[$item]} ${ISCSI_NAME_LIST[$item]}
             $ECHO ".\c"
         fi
@@ -1371,7 +1375,7 @@ array_limit=$(expr ${#ZFS_ENABLE_LIST[@]} - 1)
 for item in `seq 0 $array_limit`
 do
     if [ ${ZFS_ENABLE_LIST[$item]} -eq 1 ]; then
-#	do_log ${ZFS_NAME_LIST[$item]}
+	do_log ${ZFS_NAME_LIST[$item]}
 	${ZFS_COMMAND_LIST[$item]} ${ZFS_NAME_LIST[$item]}
         $ECHO ".\c"
     fi
@@ -1387,6 +1391,7 @@ array_limit=$(expr ${#NETWORK_ENABLE_LIST[@]} - 1)
 for item in `seq 0 $array_limit`
 do
     if [ ${NETWORK_ENABLE_LIST[$item]} -eq 1 ]; then
+	do_log ${NETWORK_NAME_LIST[$item]}
 	${NETWORK_COMMAND_LIST[$item]} ${NETWORK_NAME_LIST[$item]}
 	$ECHO ".\c"
     fi
