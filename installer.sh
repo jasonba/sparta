@@ -4,7 +4,7 @@
 # Program	: installer.sh
 # Author	: Jason Banham
 # Date		: 2013-01-04 | 2014-05-09
-# Version	: 0.12
+# Version	: 0.13
 # Usage		: installer.sh [<zpool name>]
 # Purpose	: Gather performance statistics for a NexentaStor appliance
 # History	: 0.01 - Initial version
@@ -21,6 +21,7 @@
 #		  0.11 - Added logic in case installer.sh is not run from the same directory
 #			 where the tarball was unpacked
 #		  0.12 - Enhanced installer to pick multiple zpools/volumes to monitor
+#		  0.13 - Fixed bug in loop code for copying from payload directory
 #
 
 #
@@ -192,17 +193,16 @@ if [ ! -d $LOG_TEMPLATES ]; then
     mkdir $LOG_TEMPLATES
 fi
 
-cp $README $LOG_DIR/
-
  
 #
 # We expect people to unpack the tarball in /tmp and then cd into that directory
 # in order to install SPARTA, however that may not always be the case, so check
 # we can find the config file and prompt for the unpack location if not found.
 #
-UNPACK_DIR=""
-while [ `echo $UNPACK_DIR | wc -c` -lt 2 ]; do
-    if [ ! -r payload/sparta.config ]; then
+UNPACK_DIR="."
+if [ ! -r payload/sparta.config ]; then
+    UNPACK_DIR=""
+    while [ `echo $UNPACK_DIR | wc -c` -lt 2 ]; do
         $ECHO "I cannot find the scripts to install."
         $ECHO "Please give the full path to where you unpacked the tarball, eg: /var/tmp"
         $ECHO "Path name : \c"
@@ -216,11 +216,15 @@ while [ `echo $UNPACK_DIR | wc -c` -lt 2 ]; do
 	    continue
 	else
 	    $ECHO "thanks, I've found them now."
+            break
         fi
-    fi
-done
+    done
+fi
 
 cd $UNPACK_DIR
+
+cp $README $LOG_DIR/
+
 for script in $SCRIPTS
 do
     $COPY payload/$script $LOG_SCRIPTS/

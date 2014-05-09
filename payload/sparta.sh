@@ -884,8 +884,8 @@ function launch_zil_stat
 {
     ZIL_STAT_PID="`pgrep -fl zil_stat\.d | awk '{print $1}'`"
     if [ "x$ZIL_STAT_PID" == "x" ]; then
-        print_to_log "zil statistics" $LOG_DIR/$SAMPLE_DAY/zil_stat.out $FF_DATE_SEP
-        $ZIL_STAT >> $LOG_DIR/$SAMPLE_DAY/zil_stat.out 2>&1 &
+        print_to_log "zil statistics" $LOG_DIR/$SAMPLE_DAY/zilstat.out $FF_DATE_SEP
+        $ZIL_STAT >> $LOG_DIR/$SAMPLE_DAY/zilstat.out 2>&1 &
         print_to_log "  Started zil statistics sampling" $SPARTA_LOG $FF_DATE
     else
         print_to_log "  zil statistics script already running as PID $ZIL_STAT_PID" $SPARTA_LOG $FF_DATE
