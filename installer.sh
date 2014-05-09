@@ -4,7 +4,7 @@
 # Program	: installer.sh
 # Author	: Jason Banham
 # Date		: 2013-01-04 | 2014-05-09
-# Version	: 0.11
+# Version	: 0.12
 # Usage		: installer.sh [<zpool name>]
 # Purpose	: Gather performance statistics for a NexentaStor appliance
 # History	: 0.01 - Initial version
@@ -20,6 +20,7 @@
 #		         pool has not yet been created
 #		  0.11 - Added logic in case installer.sh is not run from the same directory
 #			 where the tarball was unpacked
+#		  0.12 - Enhanced installer to pick multiple zpools/volumes to monitor
 #
 
 #
@@ -104,9 +105,11 @@ $ECHO "Welcome to the performance monitoring script installer\n"
 if [ "x$1" == "x" ]; then
     ANS=""
     while [ `echo $ANS | wc -c` -lt 2 ]; do
+	let failcount=0
         $ECHO "Here are the available (non syspool) volumes (zpools) on this appliance:"
         $ZPOOL list | grep -v syspool
-        $ECHO "\nPlease enter the name of the volume (zpool) to monitor"
+        $ECHO "\nPlease enter the name(s) of the volume(s) (zpool) to monitor"
+        $ECHO "using commas to separate if multiple pools are specified"
 	$ECHO "or enter none if no data pool exists : \c "
         read ANS
 	if [ `echo $ANS | wc -c` -lt 2 ]; then
@@ -116,24 +119,35 @@ if [ "x$1" == "x" ]; then
 	    ZPOOL_NAME="syspool"		# Default to syspool so we have something
 	    break				# but likely to give unsatisfying results
 	fi
-        ZPOOL_EXIST="`$ZPOOL list -H $ANS > /dev/null 2>&1`"
-        if [ $? -ne 0 ]; then
-    	    $ECHO "Unable to find that volume ($ANS) - please try again."
-    	    ANS=""
-        else
+	IFS=", 	"
+	for poolname in $ANS
+	do
+            ZPOOL_EXIST="`$ZPOOL list -H $poolname > /dev/null 2>&1`"
+            if [ $? -ne 0 ]; then
+                $ECHO "Unable to find that volume ($poolname) - please try again.\n\n"
+                poolname=""
+                let failcount++
+            fi
+        done
+        unset IFS
+        if [ $failcount -eq 0 ]; then
 	    ZPOOL_NAME="$ANS"
-	    break
+            break
+        else
+	    ANS=""
+            continue
         fi
     done
 else
     ZPOOL_EXIST="`$ZPOOL list -H $1 > /dev/null 2>&1`"
     if [ $? -ne 0 ]; then
-	echo "Unable to find that volume ($ANS) - must exit but please check and re-run the installer."
+	$ECHO "Unable to find that volume ($ANS) - must exit but please check and re-run the installer."
 	exit 1
     fi
     ZPOOL_NAME="$1"
 fi
-echo "You have chosen to monitor the volume - $ZPOOL_NAME"
+$ECHO "You have chosen to monitor the volume - $ZPOOL_NAME"
+$ECHO ""
 
 SERVICE_ANS="n"
 $ECHO "Which service do you wish to monitor?"
@@ -188,7 +202,7 @@ cp $README $LOG_DIR/
 #
 UNPACK_DIR=""
 while [ `echo $UNPACK_DIR | wc -c` -lt 2 ]; do
-    if [ -r payload/sparta.config ]; then
+    if [ ! -r payload/sparta.config ]; then
         $ECHO "I cannot find the scripts to install."
         $ECHO "Please give the full path to where you unpacked the tarball, eg: /var/tmp"
         $ECHO "Path name : \c"
