@@ -74,10 +74,11 @@ ENABLE_ZPOOL_STATUS=1		# Whether we want the zpool status output
 ENABLE_ZPOOL_LIST=1		# Whether we want the zpool list output
 ENABLE_ZFS_GET=1		# Whether we want to do a zfs get all on the various datasets
 ENABLE_LARGE_FILE_DELETE=1	# Do we run up the script to look for large file delete issues?
+ENABLE_ZPOOL_IOSTAT=0           # Whether we sample 'zpool iostat -v' output for a pool. Disabled by default
 
-ZFS_ENABLE_LIST=( $ENABLE_TXGMON $ENABLE_METASLAB $ENABLE_ARC_ADJUST $ENABLE_ARC_MDB $ENABLE_ARCSTAT $ENABLE_ZIL_COMMIT $ENABLE_ZIL_STAT $ENABLE_ZFS_MDB $ENABLE_ZFS_PARAMS $ENABLE_ZPOOL_STATUS $ENABLE_ZPOOL_LIST $ENABLE_ZFS_GET $ENABLE_LARGE_FILE_DELETE )
-ZFS_NAME_LIST=( txg_monitor metaslab arc_adjust arc arcstat zil_commit zilstat zfs_mdb zfs_params zpool_status zpool_list zfs_get large_file_delete )
-ZFS_COMMAND_LIST=( launch_txg_monitor launch_metaslab launch_arc_adjust gather_arc_mdb launch_arcstat launch_zil_commit launch_zil_stat gather_zfs_mdb gather_zfs_params gather_zpool_status gather_zpool_list gather_zfs_get launch_large_file_delete )
+ZFS_ENABLE_LIST=( $ENABLE_TXGMON $ENABLE_METASLAB $ENABLE_ARC_ADJUST $ENABLE_ARC_MDB $ENABLE_ARCSTAT $ENABLE_ZIL_COMMIT $ENABLE_ZIL_STAT $ENABLE_ZFS_MDB $ENABLE_ZFS_PARAMS $ENABLE_ZPOOL_STATUS $ENABLE_ZPOOL_LIST $ENABLE_ZFS_GET $ENABLE_LARGE_FILE_DELETE $ENABLE_ZPOOL_IOSTAT )
+ZFS_NAME_LIST=( txg_monitor metaslab arc_adjust arc arcstat zil_commit zilstat zfs_mdb zfs_params zpool_status zpool_list zfs_get large_file_delete zpool_iostat )
+ZFS_COMMAND_LIST=( launch_txg_monitor launch_metaslab launch_arc_adjust gather_arc_mdb launch_arcstat launch_zil_commit launch_zil_stat gather_zfs_mdb gather_zfs_params gather_zpool_status gather_zpool_list gather_zfs_get launch_large_file_delete gather_zpool_iostat )
 
 
 ### OS tools

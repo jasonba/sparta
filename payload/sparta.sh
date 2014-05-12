@@ -3,8 +3,8 @@
 #
 # Program	: sparta.sh
 # Author	: Jason.Banham@Nexenta.COM
-# Date		: 2013-02-04 - 2014-04-08
-# Version	: 0.32
+# Date		: 2013-02-04 - 2014-05-115-11
+# Version	: 0.33
 # Usage		: sparta.sh [ -h | -help | start | status | stop | tarball ]
 # Purpose	: Gather performance statistics for a NexentaStor appliance
 # Legal		: Copyright 2013 and 2014, Nexenta Systems, Inc. 
@@ -52,6 +52,7 @@
 #		  0.30 - Added additional comstar scripts
 #		  0.31 - Fixed NULL file logging problems
 #		  0.32 - Changed lockstat monitoring to be disabled by default
+#		  0.33 - Added a zpool iostat monitor for Paul Nienabar
 #		  
 #
 
@@ -166,6 +167,7 @@ function script_status
     pgrep -fl "$IOSTAT $IOSTAT_OPTS"
     pgrep -fl "$PRSTAT $PRSTAT_OPTS"
     pgrep -fl "$SPARTA_SHIELD"
+    pgrep -fl "$ZPOOL iostat $ZPOOL_IOSTAT_OPTS"
 }
 
 
@@ -181,6 +183,7 @@ function script_kill
     pkill -f "$MPSTAT $MPSTAT_OPTS"
     pkill -f "$IOSTAT $IOSTAT_OPTS"
     pkill -f "$PRSTAT $PRSTAT_OPTS"
+    pkill -f "$ZPOOL iostat $ZPOOL_IOSTAT_OPTS"
 }
  
 
@@ -872,8 +875,8 @@ function launch_zil_commit
 {
     ZIL_COMMIT_TIME_PID="`pgrep -fl $ZIL_COMMIT_TIME | awk '{print $1}'`"
     if [ "x$ZIL_COMMIT_TIME_PID" == "x" ]; then
-        print_to_log "zil commit time" $LOG_DIR/$SAMPLE_DAY/zil_commit_time.out $FF_DATE_SEP
-        $ZIL_COMMIT_TIME >> $LOG_DIR/$SAMPLE_DAY/zil_commit_time.out 2>&1 &
+        print_to_log "zil commit time" $LOG_DIR/$SAMPLE_DAY/zil_commit.out $FF_DATE_SEP
+        $ZIL_COMMIT_TIME >> $LOG_DIR/$SAMPLE_DAY/zil_commit.out 2>&1 &
         print_to_log "  Started zil commit time sampling" $SPARTA_LOG $FF_DATE
     else
         print_to_log "  zil commit time script already running as PID $ZIL_COMMIT_TIME_PID" $SPARTA_LOG $FF_DATE
@@ -937,6 +940,24 @@ function launch_large_file_delete
     else
         print_to_log "  large delete script already running as PID $LARGE_DELETE_PID" $SPARTA_LOG $FF_DATE
     fi
+}
+
+function gather_zpool_iostat
+{
+    IFS=",  ^M"
+    for poolname in $ZPOOL_NAME
+    do
+        PGREP_STRING="$ZPOOL iostat $ZPOOL_IOSTAT_OPTS $poolname $ZPOOL_IOSTAT_FREQ"
+        ZPOOL_IOSTAT_PID="`pgrep -fl "$PGREP_STRING" | awk '{print $1}'`"
+        if [ "x$ZPOOL_IOSTAT_PID" == "x" ]; then
+            print_to_log "$ZPOOL iostat on zpool $poolname" $LOG_DIR/$SAMPLE_DAY/zpool_iostat_${poolname}.out $FF_DATE_SEP
+            $ZPOOL iostat $ZPOOL_IOSTAT_OPTS $poolname $ZPOOL_IOSTAT_FREQ >> $LOG_DIR/$SAMPLE_DAY/zpool_iostat_${poolname}.out 2>&1 &
+            print_to_log "Started zpool iostat $ZPOOL_IOSTAT_OPTS $poolname $ZPOOL_IOSTAT_FREQ" $SPARTA_LOG $FF_DATE
+        else
+            print_to_log "zpool iostat already running for zpool $poolname as PID $ZPOOL_IOSTAT_PID" $SPARTA_LOG $FF_DATE
+        fi
+    done
+    unset IFS
 }
 
 
