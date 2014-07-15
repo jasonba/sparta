@@ -3,8 +3,8 @@
 #
 # Program	: installer.sh
 # Author	: Jason Banham
-# Date		: 2013-01-04 | 2014-05-09
-# Version	: 0.13
+# Date		: 2013-01-04 | 2014-07-03
+# Version	: 0.14
 # Usage		: installer.sh [<zpool name>]
 # Purpose	: Gather performance statistics for a NexentaStor appliance
 # History	: 0.01 - Initial version
@@ -22,6 +22,8 @@
 #			 where the tarball was unpacked
 #		  0.12 - Enhanced installer to pick multiple zpools/volumes to monitor
 #		  0.13 - Fixed bug in loop code for copying from payload directory
+#		  0.14 - Added an option to skip the auto-updater when calling sparta.sh
+#			 for customers who do not have a route out to the Internet
 #
 
 #
@@ -64,7 +66,7 @@ SPARTA_TEMPLATE=$LOG_CONFIG/sparta.config.template
 #
 # Scripts and files to install
 #
-SCRIPTS="arcstat.pl arc_adjust.v2.d arc_adjust_ns4.v2.d arc_evict.d cifssvrtop dnlc_lookups.d iscsisvrtop kmem_reap_100ms.d large_delete.d txg_monitor.v3.d hotkernel.priv lockstat_sparta.sh metaslab.sh nfsio.d nfssrvutil.d nfssvrtop nfsrwtime.d sbd_zvol_unmap.d sparta.sh sparta_shield.sh stmf_task_time.d zil_commit_time.d zil_stat.d"
+SCRIPTS="arcstat.pl arc_adjust.v2.d arc_adjust_ns4.v2.d arc_evict.d cifssvrtop dnlc_lookups.d iscsisvrtop kmem_reap_100ms.d large_delete.d txg_monitor.v3.d hotkernel.priv lockstat_sparta.sh metaslab.sh nfsio.d nfssrvutil.d nfssvrtop nfsrwtime.d sbd_zvol_unmap.d sparta.sh sparta_shield.sh stmf_task_time.d tcp_input.d zil_commit_time.d zil_stat.d"
 CONFIG_FILES="sparta.config"
 TEMPLATE_FILES="README_WORKLOADS light"
 README="README"
@@ -266,9 +268,18 @@ $ECHO "\nWould you like me to run the performance gathering script? (y|n) \c"
 read RUNME
 RUNME="`$ECHO $RUNME | $TR '[:upper:]' '[:lower:]'`"
 if [ "$RUNME" == "y" ]; then
-    $LOG_SCRIPTS/sparta.sh start
+    $ECHO "SPARTA usually dials home in order to get the latest version"
+    $ECHO "Does this appliance have direct access to the Internet? (y|n) \c"
+    read INTERNET_ACCESS
+    INTERNET_ACCESS="`$ECHO $INTERNET_ACCESS | $TR '[:upper:]' '[:lower:]'`"
+    if [ "$INTERNET_ACCESS" == "y" ]; then
+        $LOG_SCRIPTS/sparta.sh start
+    else
+	$LOG_SCRIPTS/sparta.sh -u no start
+    fi
 fi
 
 $ECHO "\nTo run the script manually use - $LOG_SCRIPTS/sparta.sh start"
+$ECHO "To see the help page for SPARTA, run sparta.sh -h"
 
 exit 0

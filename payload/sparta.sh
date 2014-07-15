@@ -4,7 +4,7 @@
 # Program	: sparta.sh
 # Author	: Jason.Banham@Nexenta.COM
 # Date		: 2013-02-04 - 2014-05-115-11
-# Version	: 0.33
+# Version	: 0.34
 # Usage		: sparta.sh [ -h | -help | start | status | stop | tarball ]
 # Purpose	: Gather performance statistics for a NexentaStor appliance
 # Legal		: Copyright 2013 and 2014, Nexenta Systems, Inc. 
@@ -53,6 +53,7 @@
 #		  0.31 - Fixed NULL file logging problems
 #		  0.32 - Changed lockstat monitoring to be disabled by default
 #		  0.33 - Added a zpool iostat monitor for Paul Nienabar
+#		  0.34 - Added LC_TIME into sparta.config to ensure correct date format for analysis tools
 #		  
 #
 
