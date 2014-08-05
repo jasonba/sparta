@@ -3,8 +3,8 @@
 #
 # Program	: sparta.sh
 # Author	: Jason.Banham@Nexenta.COM
-# Date		: 2013-02-04 - 2014-05-115-11
-# Version	: 0.34
+# Date		: 2013-02-04 - 2014-08-04
+# Version	: 0.36
 # Usage		: sparta.sh [ -h | -help | start | status | stop | tarball ]
 # Purpose	: Gather performance statistics for a NexentaStor appliance
 # Legal		: Copyright 2013 and 2014, Nexenta Systems, Inc. 
@@ -54,6 +54,8 @@
 #		  0.32 - Changed lockstat monitoring to be disabled by default
 #		  0.33 - Added a zpool iostat monitor for Paul Nienabar
 #		  0.34 - Added LC_TIME into sparta.config to ensure correct date format for analysis tools
+#		  0.35 - Added visual feedback if we find a site specific .commands.local file
+#		  0.36 - sbd_zvol_unmap has disappeared from NS4.x so don't run the SBD_ZVOL_UNMAP script there
 #		  
 #
 
@@ -125,7 +127,7 @@ function help
     $ECHO "  -C              : Enable CIFS data collection (in addition to existing protocols)"
     $ECHO "  -I              : Enable iSCSI data collection (in addition to existing protocols)"
     $ECHO "  -N              : Enable NFS data collection (in addition to existing protocols)"
-    $ECHO "  -S		     : Enable STMF (COMSTAR) data collection (in addition to existing protocols)"
+    $ECHO "  -S              : Enable STMF (COMSTAR) data collection (in addition to existing protocols)"
     $ECHO "  -p <zpoolname>  : Monitor the given ZFS pool(s)"
     $ECHO "  -u [ yes | no ] : Enable or disable the automatic update feature"
     $ECHO "  -P <protocol>   : Enable *only* the given protocol(s) nfs iscsi cifs stmf or a combination"
