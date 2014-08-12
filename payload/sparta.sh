@@ -4,7 +4,7 @@
 # Program	: sparta.sh
 # Author	: Jason.Banham@Nexenta.COM
 # Date		: 2013-02-04 - 2014-08-04
-# Version	: 0.36
+# Version	: 0.37
 # Usage		: sparta.sh [ -h | -help | start | status | stop | tarball ]
 # Purpose	: Gather performance statistics for a NexentaStor appliance
 # Legal		: Copyright 2013 and 2014, Nexenta Systems, Inc. 
@@ -56,7 +56,8 @@
 #		  0.34 - Added LC_TIME into sparta.config to ensure correct date format for analysis tools
 #		  0.35 - Added visual feedback if we find a site specific .commands.local file
 #		  0.36 - sbd_zvol_unmap has disappeared from NS4.x so don't run the SBD_ZVOL_UNMAP script there
-#		  
+#		  0.37 - Modified the SAMPLE_DAY variable to use hyphens instead of colons
+#
 #
 
 # 
@@ -1208,7 +1209,7 @@ fi
 #
 # Performance samples are collated by day (where possible) so figure out the day
 #
-SAMPLE_DAY="`$DATE +%Y:%m:%d`"
+SAMPLE_DAY="`$DATE +%Y-%m-%d`"
 if [ ! -d $LOG_DIR/$SAMPLE_DAY ]; then
     $MKDIR -p $LOG_DIR/$SAMPLE_DAY
     if [ $? -ne 0 ]; then
