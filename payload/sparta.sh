@@ -4,7 +4,7 @@
 # Program	: sparta.sh
 # Author	: Jason.Banham@Nexenta.COM
 # Date		: 2013-02-04 - 2014-08-04
-# Version	: 0.37
+# Version	: 0.38
 # Usage		: sparta.sh [ -h | -help | start | status | stop | tarball ]
 # Purpose	: Gather performance statistics for a NexentaStor appliance
 # Legal		: Copyright 2013 and 2014, Nexenta Systems, Inc. 
@@ -57,6 +57,7 @@
 #		  0.35 - Added visual feedback if we find a site specific .commands.local file
 #		  0.36 - sbd_zvol_unmap has disappeared from NS4.x so don't run the SBD_ZVOL_UNMAP script there
 #		  0.37 - Modified the SAMPLE_DAY variable to use hyphens instead of colons
+#		  0.38 - Added /etc/issue to list of files collected
 #
 #
 
