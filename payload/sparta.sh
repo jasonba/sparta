@@ -4,7 +4,7 @@
 # Program	: sparta.sh
 # Author	: Jason.Banham@Nexenta.COM
 # Date		: 2013-02-04 - 2014-08-04
-# Version	: 0.38
+# Version	: 0.39
 # Usage		: sparta.sh [ -h | -help | start | status | stop | tarball ]
 # Purpose	: Gather performance statistics for a NexentaStor appliance
 # Legal		: Copyright 2013 and 2014, Nexenta Systems, Inc. 
@@ -58,6 +58,8 @@
 #		  0.36 - sbd_zvol_unmap has disappeared from NS4.x so don't run the SBD_ZVOL_UNMAP script there
 #		  0.37 - Modified the SAMPLE_DAY variable to use hyphens instead of colons
 #		  0.38 - Added /etc/issue to list of files collected
+#		  0.39 - Fixed bugs in input filter (IFS) variable and selection of STMF monitoring
+#			 that were working but had come undone. (thanks to Dominic Watts @ NAS)
 #
 #
 
@@ -481,7 +483,7 @@ function generate_tarball
 #
 subcommand="usage"
 
-while getopts ChINP:u:vp:? argopt
+while getopts ChINP:Su:vp:? argopt
 do
         case $argopt in
         C)      # Enable CIFS scripts
@@ -503,7 +505,7 @@ do
 		TRACE_NFS="n"
 		TRACE_STMF="n"
 
-    		IFS=",  ^M"
+    		IFS=", 	"
 		for protocol in $OPTARG
 		do
 		    case $protocol in
@@ -806,7 +808,7 @@ function gather_dladm
 
 function launch_txg_monitor
 {
-    IFS=",  ^M"
+    IFS=", 	"
     for poolname in $ZPOOL_NAME
     do
         PGREP_STRING="$TXG_MON $poolname"
@@ -824,7 +826,7 @@ function launch_txg_monitor
 
 function launch_metaslab
 {
-    IFS=",  ^M"
+    IFS=", 	"
     for poolname in $ZPOOL_NAME
     do
         PGREP_STRING="$METASLAB_ALLOC -p $poolname"
@@ -927,7 +929,7 @@ function gather_zpool_list
 
 function gather_zfs_get
 {
-    IFS=",  ^M"
+    IFS=", 	"
     for poolname in $ZPOOL_NAME
     do
         $ZFS get -r all $poolname >> $LOG_DIR/$SAMPLE_DAY/zfs_get-r_all.${poolname}.out 2>&1
@@ -949,7 +951,7 @@ function launch_large_file_delete
 
 function gather_zpool_iostat
 {
-    IFS=",  ^M"
+    IFS=", 	"
     for poolname in $ZPOOL_NAME
     do
         PGREP_STRING="$ZPOOL iostat $ZPOOL_IOSTAT_OPTS $poolname $ZPOOL_IOSTAT_FREQ"
