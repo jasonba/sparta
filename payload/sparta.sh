@@ -3,8 +3,8 @@
 #
 # Program	: sparta.sh
 # Author	: Jason.Banham@Nexenta.COM
-# Date		: 2013-02-04 - 2014-08-04
-# Version	: 0.39
+# Date		: 2013-02-04 - 2014-08-27
+# Version	: 0.42
 # Usage		: sparta.sh [ -h | -help | start | status | stop | tarball ]
 # Purpose	: Gather performance statistics for a NexentaStor appliance
 # Legal		: Copyright 2013 and 2014, Nexenta Systems, Inc. 
@@ -60,6 +60,9 @@
 #		  0.38 - Added /etc/issue to list of files collected
 #		  0.39 - Fixed bugs in input filter (IFS) variable and selection of STMF monitoring
 #			 that were working but had come undone. (thanks to Dominic Watts @ NAS)
+#		  0.40 - Removed a redundant tunable from sparta.config (LOG_USED_MAX)
+#		  0.41 - Added filesystem statistic gathering
+#		  0.42 - Added a cifssvrtop.v4 script that works on NS4.x
 #
 #
 
@@ -396,6 +399,21 @@ function calc_space()
 
 
 #
+# Check to see if a scrub is already in progress on any of the zpools
+# Notify the user as this can be a performance inhibitor
+#
+function check_for_scrub()
+{
+    for zpool_name in `zpool list -H | awk '{print $1}'`
+    do
+        if [ "`zpool status $zpool_name | awk '/scrub in progress/ {print $1}'`" == "scan:" ]; then
+	    $ECHO "    scrub running on $zpool_name"
+	fi
+    done
+}
+
+
+#
 # Generate a tarball of the perflogs directory
 #   arg1 = whether we wish to bypass the 'Do you wish to ...' question as this can be
 #          rather annoying when asked previously at the end of a sparta run
@@ -594,6 +612,8 @@ case "$subcommand" in
 	exit 0
 	;;
 esac
+
+
 
 ################################################################################
 # 
@@ -1017,6 +1037,22 @@ function gather_iostat
 }
 
 
+### Filesystems specific functions defined here
+
+function gather_fsstat
+{
+    print_to_log "Filesystem statistics" $SPARTA_LOG $FF_DATE
+    $FSSTAT_SH $FSSTAT_OPTS >> $LOG_DIR/$SAMPLE_DAY/fsstat.out &
+    let count=0
+    while [ $count -lt $FSSTAT_SAMPLE_TIME ]; do
+        cursor_update
+        sleep 1
+        let count=$count+1
+    done
+    cursor_blank
+}
+
+
 ### NFS specific functions defined here
 
 function launch_nfs_io
@@ -1210,6 +1246,17 @@ fi
 
 
 #
+# Check for any running scrubs
+#
+$ECHO "Checking for active scrubs on imported zpools"
+$ECHO "Please NOTE: scrubs can have an impact on zpool performance, affecting latency and throughput"
+$ECHO ""
+check_for_scrub
+$ECHO ""
+$ECHO ""
+
+
+#
 # Performance samples are collated by day (where possible) so figure out the day
 #
 SAMPLE_DAY="`$DATE +%Y-%m-%d`"
@@ -1308,6 +1355,22 @@ do
     if [ ${DISK_ENABLE_LIST[$item]} -eq 1 ]; then
         do_log ${DISK_NAME_LIST[$item]}
 	${DISK_COMMAND_LIST[$item]} ${DISK_NAME_LIST[$item]}
+        $ECHO ".\c"
+    fi
+done
+$ECHO " done"
+
+
+#
+# Filesystem specific scripts invoked here
+#
+$ECHO "Starting Filesystem statistics gathering .\c"
+array_limit=$(expr ${#FILESYS_ENABLE_LIST[@]} - 1)
+for item in `seq 0 $array_limit`
+do
+    if [ ${FILESYS_ENABLE_LIST[$item]} -eq 1 ]; then
+        do_log ${FILESYS_NAME_LIST[$item]}
+        ${FILESYS_COMMAND_LIST[$item]} ${FILESYS_NAME_LIST[$item]}
         $ECHO ".\c"
     fi
 done

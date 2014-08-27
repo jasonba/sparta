@@ -4,7 +4,7 @@
 ###   o) ZFS metaslab monitoring
 ###   o) ZFS ZIL monitoring
 ###   o) lockstat data collection
-###   o) NFS, CIFS and iSCSI data dtrace scripts 
+###   o) NFS, CIFS and iSCSI data dtrace scripts
 ###      - NFS config data still collected
 
 ################################################################################
@@ -32,20 +32,20 @@ ENABLE_CSTATE=1			# Check for BIOS level CPU power saving
 ENABLE_INTERRUPTS=1		# Gather configured interrupt handling data
 
 CPU_ENABLE_LIST=($ENABLE_VMSTAT $ENABLE_MPSTAT $ENABLE_PSRINFO $ENABLE_PRSTAT $ENABLE_CSTATE $ENABLE_INTERRUPTS)
-CPU_NAME_LIST=( vmstat mpstat psrinfo prstat cstate interrupts)
-CPU_COMMAND_LIST=( launch_vmstat launch_mpstat gather_psrinfo launch_prstat gather_cstate gather_interrupts )
+CPU_NAME_LIST=(vmstat.out mpstat.out psrinfo.out prstat.out cstate.out interrupts.out)
+CPU_COMMAND_LIST=(launch_vmstat launch_mpstat gather_psrinfo launch_prstat gather_cstate gather_interrupts)
 
 
 ### Kernel tools
 #
 ENABLE_HOTKERNEL=1		# Sample the kernel's hot activity
 ENABLE_TASKQ=1			# Sample the current kernel task queue details
-ENABLE_LOCKSTAT=0		# Collect kernel locking information - can add to system load 
+ENABLE_LOCKSTAT=0		# Collect kernel locking information - disabled by default as it can add to system load
 ENABLE_KMEM_REAP=1		# Collect kernel memory reaping activity
 ENABLE_KERNEL_MDB=1		# Collect some kernel tunables
 
-KERNEL_ENABLE_LIST=( $ENABLE_HOTKERNEL $ENABLE_LOCKSTAT $ENABLE_TASKQ $ENABLE_KMEM_REAP $ENABLE_KERNEL_MDB )
-KERNEL_NAME_LIST=( hotkernel lockstat taskq kmem_reap kernel_tunables )
+KERNEL_ENABLE_LIST=($ENABLE_HOTKERNEL $ENABLE_LOCKSTAT $ENABLE_TASKQ $ENABLE_KMEM_REAP $ENABLE_KERNEL_MDB )
+KERNEL_NAME_LIST=(hotkernel.out NULL NULL kmem_reap.out NULL)
 KERNEL_COMMAND_LIST=( launch_hotkernel launch_lockstat gather_taskq launch_kmem_reap gather_kernel_mdb )
 
 
@@ -55,29 +55,35 @@ ENABLE_IFCONFIG=1		# Collect basic networking information
 ENABLE_DLADM=1			# Collect additional networking information
 
 NETWORK_ENABLE_LIST=( $ENABLE_IFCONFIG $ENABLE_DLADM )
-NETWORK_NAME_LIST=( ifconfig dladm )
+NETWORK_NAME_LIST=( ifconfig-a.out NULL )
 NETWORK_COMMAND_LIST=( gather_ifconfig gather_dladm )
 
 
 ### ZFS tools
 #
-ENABLE_TXGMON=0			# Enable the ZFS transaction group monitor for one or more zpools
-ENABLE_METASLAB=0		# Sample metaslab allocation times for one or more pools
+case $NEXENTASTOR_MAJ_VER in
+    3 ) ENABLE_TXGMON=1		# Enable the ZFS transaction group monitor for one or more zpools
+	;;
+    4 ) ENABLE_TXGMON=0		# NexentaStor 4.x has the temp reserve code removed, therefore disable this for now
+	;;
+esac
+
+ENABLE_METASLAB=1		# Sample metaslab allocation times for one or more pools
 ENABLE_ARC_ADJUST=1		# Collect data on ARC shrink/grow activity
 ENABLE_ARC_MDB=1		# Sample basic ::arc data from mdb
 ENABLE_ARCSTAT=1		# Do we enable the arcstat.pl file to collect simple ARC data
-ENABLE_ZIL_COMMIT=0		# Collect data on ZIL commit times/latency
-ENABLE_ZIL_STAT=0		# Do we enable the zilstat.d script for basic ZIL performance numbers
+ENABLE_ZIL_COMMIT=1		# Collect data on ZIL commit times/latency
+ENABLE_ZIL_STAT=1		# Do we enable the zilstat.d script for basic ZIL performance numbers
 ENABLE_ZFS_MDB=1		# Collect various ZFS tunables from the kernel
 ENABLE_ZFS_PARAMS=1		# Collect the ZFS parameter tunables
 ENABLE_ZPOOL_STATUS=1		# Whether we want the zpool status output
 ENABLE_ZPOOL_LIST=1		# Whether we want the zpool list output
 ENABLE_ZFS_GET=1		# Whether we want to do a zfs get all on the various datasets
 ENABLE_LARGE_FILE_DELETE=1	# Do we run up the script to look for large file delete issues?
-ENABLE_ZPOOL_IOSTAT=0           # Whether we sample 'zpool iostat -v' output for a pool. Disabled by default
+ENABLE_ZPOOL_IOSTAT=0		# Whether we sample 'zpool iostat -v' output for a pool.  Disabled by default
 
 ZFS_ENABLE_LIST=( $ENABLE_TXGMON $ENABLE_METASLAB $ENABLE_ARC_ADJUST $ENABLE_ARC_MDB $ENABLE_ARCSTAT $ENABLE_ZIL_COMMIT $ENABLE_ZIL_STAT $ENABLE_ZFS_MDB $ENABLE_ZFS_PARAMS $ENABLE_ZPOOL_STATUS $ENABLE_ZPOOL_LIST $ENABLE_ZFS_GET $ENABLE_LARGE_FILE_DELETE $ENABLE_ZPOOL_IOSTAT )
-ZFS_NAME_LIST=( txg_monitor metaslab arc_adjust arc arcstat zil_commit zilstat zfs_mdb zfs_params zpool_status zpool_list zfs_get large_file_delete zpool_iostat )
+ZFS_NAME_LIST=( NULL NULL arc_adjust.out arc.out arcstat.out zil_commit.out zilstat.out NULL NULL zpool_status.out zpool_list.out NULL large_delete.out NULL )
 ZFS_COMMAND_LIST=( launch_txg_monitor launch_metaslab launch_arc_adjust gather_arc_mdb launch_arcstat launch_zil_commit launch_zil_stat gather_zfs_mdb gather_zfs_params gather_zpool_status gather_zpool_list gather_zfs_get launch_large_file_delete gather_zpool_iostat )
 
 
@@ -87,17 +93,17 @@ ENABLE_DNLC=1			# Whether to enable DNLC statistic monitoring
 ENABLE_MEMSTAT=1		# Whether we gather basic ::memstat data
 
 OS_ENABLE_LIST=( $ENABLE_DNLC $ENABLE_MEMSTAT )
-OS_NAME_LIST=(dnlc memstat)
+OS_NAME_LIST=(dnlc_lookups.out memstat.out )
 OS_COMMAND_LIST=(launch_dnlc gather_memstat)
 
 
 ### Disk tools
 #
-ENABLE_IOSTAT=1			# Whether we gather basic disk information (iostat -En)
-ENABLE_IOSTAT_LOGGING=1		# Whether we enable basic iostat disk monitoring
+ENABLE_IOSTAT=1                 # Whether we gather basic disk information (iostat -En)
+ENABLE_IOSTAT_LOGGING=1         # Whether we enable basic iostat disk monitoring
 
 DISK_ENABLE_LIST=( $ENABLE_IOSTAT $ENABLE_IOSTAT_LOGGING )
-DISK_NAME_LIST=( iostat-E iostat.out )
+DISK_NAME_LIST=( iostat-En.out iostat.out )
 DISK_COMMAND_LIST=( gather_iostat launch_iostat )
 
 
@@ -111,7 +117,7 @@ ENABLE_NFS_STAT=1		# Whether we gather nfsstat -s output
 ENABLE_NFS_SHARECTL=1		# Whether we gather sharectl get nfs output
 
 NFS_ENABLE_LIST=($ENABLE_NFS_IO $ENABLE_NFS_THREADS $ENABLE_NFS_TOP $ENABLE_NFS_RWTIME $ENABLE_NFS_STAT $ENABLE_NFS_SHARECTL)
-NFS_NAME_LIST=(nfs_io nfs_threads nfs_top nfs_rwtime nfsstat nfs_sharectl)
+NFS_NAME_LIST=(nfs_io.out nfs_threads.out nfssvrtop.out nfs_rwtime.out nfsstat-s.out sharectl_get_nfs.out)
 NFS_COMMAND_LIST=(launch_nfs_io launch_nfs_thread_util launch_nfstop launch_nfs_rwtime gather_nfs_stat_server gather_nfs_share_output)
 
 
@@ -121,18 +127,40 @@ ENABLE_CIFS_TOP=0		# Whether we run the cifssvrtop.d script to look for highest 
 ENABLE_CIFS_SHARECTL=0		# Whether we gather the sharectl get cifs output
 
 CIFS_ENABLE_LIST=($ENABLE_CIFS_TOP $ENABLE_CIFS_SHARECTL)
-CIFS_NAME_LIST=(cifs_svrtop cifs_sharectl)
+CIFS_NAME_LIST=(cifssvrtop.out sharectl_get_smb.out)
 CIFS_COMMAND_LIST=(launch_cifs_top gather_cifs_share_output)
 
 
-### COMSTAT/SBD/ISCSI tools
+### COMSTAR/SBD/ISCSI tools
 #
 ENABLE_ISCSI_TOP=0		# Whether we run the iscsisvrtop.d script to look for highest iSCSI consumers
-ENABLE_SBD_ZVOL_UNMAP=0		# Whether we run the sbd_zvol_unmap.d script looking for signs of unmap/trim activity
-ENABLE_STMF_TASK_TIME=0		# Whether we run the stmf_task_time.d script to look for delays in the COMSTAR stack
 
 ISCSI_ENABLE_LIST=($ENABLE_ISCSI_TOP)
-ISCSI_NAME_LIST=(iscsi_srvtop)
+ISCSI_NAME_LIST=(iscsisvrtop.out)
 ISCSI_COMMAND_LIST=(launch_iscsitop)
+
+### COMSTAR/STMF/SBD tools
+#
+if [ $NEXENTASTOR_MAJ_VER -eq 3 ]; then
+    ENABLE_SBD_ZVOL_UNMAP=0	# Whether we run the sbd_zvol_unmap.d script looking for signs of unmap/trim activity
+else
+    ENABLE_SBD_ZVOL_UNMAP=0	# Doesn't work under NexentaStor 4.x
+fi
+
+ENABLE_STMF_TASK_TIME=0		# Whether we run the stmf_task_time.d script to look for delays in the COMSTAR stack
+ENABLE_STMF_WORKERS=1		# Whether we gather information on backlog of stmf worker tasks
+
+COMSTAR_ENABLE_LIST=($ENABLE_SBD_ZVOL_UNMAP $ENABLE_STMF_TASK_TIME $ENABLE_STMF_WORKERS)
+COMSTAR_NAME_LIST=(sbd_zvol_unmap.out stmf_task_time.out stmf_worker_backlog.out)
+COMSTAR_COMMAND_LIST=(launch_sbd_zvol_unmap launch_stmf_task_time gather_stmf_workers)
+
+
+### Filesystem tools
+#
+ENABLE_FSSTAT=1			# Whether we gather some filesystem statistics
+
+FILESYS_ENABLE_LIST=( $ENABLE_FSSTAT )
+FILESYS_NAME_LIST=( fsstat.out )
+FILESYS_COMMAND_LIST=( gather_fsstat )
 
 ### Cut and save here for a .commands_local file
