@@ -4,7 +4,7 @@
 # Program	: sparta.sh
 # Author	: Jason.Banham@Nexenta.COM
 # Date		: 2013-02-04 - 2014-08-27
-# Version	: 0.42
+# Version	: 0.43
 # Usage		: sparta.sh [ -h | -help | start | status | stop | tarball ]
 # Purpose	: Gather performance statistics for a NexentaStor appliance
 # Legal		: Copyright 2013 and 2014, Nexenta Systems, Inc. 
@@ -63,6 +63,7 @@
 #		  0.40 - Removed a redundant tunable from sparta.config (LOG_USED_MAX)
 #		  0.41 - Added filesystem statistic gathering
 #		  0.42 - Added a cifssvrtop.v4 script that works on NS4.x
+#		  0.43 - Added flamestack data collection for kernel and userland
 #
 #
 
@@ -789,6 +790,32 @@ function gather_kernel_mdb
         $ECHO "${tunable} : \c" > $LOG_DIR/mdb/mdb.${tunable}
         $ECHO "${tunable}::print -d" | $MDB -k >> $LOG_DIR/mdb/mdb.${tunable} 2>&1
     done
+}
+
+function gather_flame_stacks
+{
+    print_to_log "Collecting kernel/user stacks" $SPARTA_LOG $FF_DATE
+    print_to_log "  Starting kernel stack collection" $SPARTA_LOG $FF_DATE
+    $FLAME_STACKS -k > $LOG_DIR/$SAMPLE_DAY/flame_kernel_stacks.out 2>&1 &
+    $ECHO ". \c"
+    let count=0
+    while [ $count -lt $FLAME_STACKS_SAMPLE_TIME ]; do
+        cursor_update
+        sleep 1
+        let count=$count+1
+    done
+    cursor_blank
+
+    print_to_log "  Starting userland stack collection" $SPARTA_LOG $FF_DATE
+    $FLAME_STACKS -k > $LOG_DIR/$SAMPLE_DAY/flame_user_stacks.out 2>&1 &
+    $ECHO ". \c"
+    let count=0
+    while [ $count -lt $FLAME_STACKS_SAMPLE_TIME ]; do
+        cursor_update
+        sleep 1
+        let count=$count+1
+    done
+    cursor_blank
 }
 
 

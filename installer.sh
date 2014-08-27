@@ -68,7 +68,7 @@ SPARTA_TEMPLATE=$LOG_CONFIG/sparta.config.template
 #
 # Scripts and files to install
 #
-SCRIPTS="arcstat.pl arc_adjust.v2.d arc_adjust_ns4.v2.d arc_evict.d cifssvrtop cifssvrtop.v4 dnlc_lookups.d fsstat.sh iscsisvrtop kmem_reap_100ms.d large_delete.d txg_monitor.v3.d hotkernel.priv lockstat_sparta.sh metaslab.sh nfsio.d nfssrvutil.d nfssvrtop nfsrwtime.d sbd_zvol_unmap.d sparta.sh sparta_shield.sh stmf_task_time.d tcp_input.d zil_commit_time.d zil_stat.d"
+SCRIPTS="arcstat.pl arc_adjust.v2.d arc_adjust_ns4.v2.d arc_evict.d cifssvrtop cifssvrtop.v4 dnlc_lookups.d flame_stacks.sh fsstat.sh iscsisvrtop kmem_reap_100ms.d large_delete.d txg_monitor.v3.d hotkernel.priv lockstat_sparta.sh metaslab.sh nfsio.d nfssrvutil.d nfssvrtop nfsrwtime.d sbd_zvol_unmap.d sparta.sh sparta_shield.sh stmf_task_time.d tcp_input.d zil_commit_time.d zil_stat.d"
 CONFIG_FILES="sparta.config"
 TEMPLATE_FILES="README_WORKLOADS light"
 README="README"
