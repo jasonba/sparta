@@ -3,8 +3,8 @@
 #
 # Program	: sparta.sh
 # Author	: Jason.Banham@Nexenta.COM
-# Date		: 2013-02-04 - 2014-08-27
-# Version	: 0.43
+# Date		: 2013-02-04 - 2014-08-28
+# Version	: 0.44
 # Usage		: sparta.sh [ -h | -help | start | status | stop | tarball ]
 # Purpose	: Gather performance statistics for a NexentaStor appliance
 # Legal		: Copyright 2013 and 2014, Nexenta Systems, Inc. 
@@ -64,6 +64,7 @@
 #		  0.41 - Added filesystem statistic gathering
 #		  0.42 - Added a cifssvrtop.v4 script that works on NS4.x
 #		  0.43 - Added flamestack data collection for kernel and userland
+#		  0.44 - Now checks for sufficient free space in $LOG_DATASET (zpool) before starting
 #
 #
 
@@ -415,6 +416,23 @@ function check_for_scrub()
 
 
 #
+# Can we actually startup SPARTA?  Is there sufficient free space in the logging directory?
+#
+function space_checker
+{
+    PERF_POOL="`$ECHO $LOG_DATASET | awk -F'/' '{print $1}'`"
+    POOL_CAPACITY="`$ZPOOL list -H -o capacity $PERF_POOL | awk -F'%' '{print $1}'`"
+    if [ $POOL_CAPACITY -gt $PERF_ZPOOL_CAPACITY_PERC ]; then
+        #
+        # What we prefix to the log file when writing
+        #
+	$ECHO "Unable to start SPARTA as $PERF_POOL capacity > ${PERF_ZPOOL_CAPACITY_PERC}%"
+	exit 1
+    fi
+}
+
+
+#
 # Generate a tarball of the perflogs directory
 #   arg1 = whether we wish to bypass the 'Do you wish to ...' question as this can be
 #          rather annoying when asked previously at the end of a sparta run
@@ -613,6 +631,12 @@ case "$subcommand" in
 	exit 0
 	;;
 esac
+
+
+#
+# Check we actually have sufficient free space to startup SPARTA
+#
+space_checker
 
 
 
