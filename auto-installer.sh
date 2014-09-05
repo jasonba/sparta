@@ -3,8 +3,8 @@
 #
 # Program	: auto-installer.sh
 # Author	: Jason Banham
-# Date		: 2013-11-04 : 2014-08-27
-# Version	: 0.06
+# Date		: 2013-11-04 : 2014-09-05
+# Version	: 0.07
 # Usage		: auto-installer.sh <tarball>
 # Purpose	: Companion script to SPARTA for auto-installing a new sparta.tar.gz file
 # History	: 0.01 - Initial version, based on the installer.sh script
@@ -13,6 +13,7 @@
 #		  0.04 - Modifed CHMOD to work on NexentaStor 4
 #                 0.05 - Added test for NexentaStor 4 for arc_adjust*.d script
 #		  0.06 - Updated for fsstat.sh and cifssvrtop.v4 scripts
+#		  0.07 - Added 5 scripts to help observer NexentaStor 4 transaction engine/throttling/vdev queue
 #
 
 #
@@ -59,7 +60,7 @@ SPARTA_TEMPLATE=$LOG_CONFIG/sparta.config.template
 #
 # Scripts and files to install
 #
-SCRIPTS="arcstat.pl arc_adjust.v2.d arc_adjust_ns4.v2.d arc_evict.d cifssvrtop cifssvrtop.v4 dnlc_lookups.d flame_stacks.sh fsstat.sh iscsisvrtop kmem_reap_100ms.d large_delete.d txg_monitor.v3.d hotkernel.priv lockstat_sparta.sh metaslab.sh nfsio.d nfssrvutil.d nfssvrtop nfsrwtime.d sbd_zvol_unmap.d sparta.sh sparta_shield.sh stmf_task_time.d tcp_input.d zil_commit_time.d zil_stat.d"
+SCRIPTS="arcstat.pl arc_adjust.v2.d arc_adjust_ns4.v2.d arc_evict.d cifssvrtop cifssvrtop.v4 delay_mintime.d delayed_writes.d dirty.d dnlc_lookups.d duration.d flame_stacks.sh fsstat.sh iscsisvrtop kmem_reap_100ms.d large_delete.d txg_monitor.v3.d hotkernel.priv lockstat_sparta.sh metaslab.sh nfsio.d nfssrvutil.d nfssvrtop nfsrwtime.d rwlatency.d sbd_zvol_unmap.d sparta.sh sparta_shield.sh stmf_task_time.d tcp_input.d zil_commit_time.d zil_stat.d"
 CONFIG_FILES="sparta.config"
 README="README"
 TEMPLATE_FILES="README_WORKLOADS light"

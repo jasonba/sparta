@@ -4,7 +4,7 @@
 # Program	: sparta.sh
 # Author	: Jason.Banham@Nexenta.COM
 # Date		: 2013-02-04 - 2014-08-28
-# Version	: 0.44
+# Version	: 0.45
 # Usage		: sparta.sh [ -h | -help | start | status | stop | tarball ]
 # Purpose	: Gather performance statistics for a NexentaStor appliance
 # Legal		: Copyright 2013 and 2014, Nexenta Systems, Inc. 
@@ -65,6 +65,7 @@
 #		  0.42 - Added a cifssvrtop.v4 script that works on NS4.x
 #		  0.43 - Added flamestack data collection for kernel and userland
 #		  0.44 - Now checks for sufficient free space in $LOG_DATASET (zpool) before starting
+#		  0.45 - nfsstat -s now runs continuously, as requested by Bayard
 #
 #
 
@@ -1157,14 +1158,11 @@ function launch_nfs_rwtime
 
 function gather_nfs_stat_server
 {
-    for x in {1..3}
-    do
-        print_to_log "  nfsstat -s statistics - sample ${x}" $SPARTA_LOG $FF_DATE
-        print_to_log "nfsstat -s sample ${x}" $LOG_DIR/$SAMPLE_DAY/nfsstat-s.out $FF_DATE_SEP
-        $NFSSTAT $NFSSTAT_OPTS >> $LOG_DIR/$SAMPLE_DAY/nfsstat-s.out
-        $ECHO ".\c"
-        cursor_pause 5
-    done
+    print_to_log "  nfsstat -s" $SPARTA_LOG $FF_DATE
+    print_to_log "nfsstat -s" $LOG_DIR/$SAMPLE_DAY/nfsstat-s.out $FF_DATE_SEP
+    $NFSSTAT $NFSSTAT_OPTS >> $LOG_DIR/$SAMPLE_DAY/nfsstat-s.out 2>&1 & 2>&1 &
+    $ECHO ".\c"
+    cursor_pause 5
 }
 
 function gather_nfs_share_output
