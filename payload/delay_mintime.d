@@ -19,7 +19,7 @@ delay-mintime
 	@ = quantize(arg2);
 }
 
-tick-10sec
+tick-2sec
 {
     printa(@);
     trunc(@);

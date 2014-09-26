@@ -26,6 +26,5 @@ txg-synced
 /start && ((dsl_pool_t *)arg0)->dp_spa->spa_name == $$1/
 {
         this->d = timestamp - start;
-        printf("sync took %d.%02d seconds\n", this->d / 1000000000,
-            this->d / 10000000 % 100);
+        printf("%Y: sync took %d.%02d seconds\n", walltimestamp, this->d / 1000000000, this->d / 10000000 % 100);
 }

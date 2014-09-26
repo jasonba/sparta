@@ -3,8 +3,8 @@
 #
 # Program	: sparta.sh
 # Author	: Jason.Banham@Nexenta.COM
-# Date		: 2013-02-04 - 2014-08-28
-# Version	: 0.45
+# Date		: 2013-02-04 - 2014-09-26
+# Version	: 0.47
 # Usage		: sparta.sh [ -h | -help | start | status | stop | tarball ]
 # Purpose	: Gather performance statistics for a NexentaStor appliance
 # Legal		: Copyright 2013 and 2014, Nexenta Systems, Inc. 
@@ -66,6 +66,8 @@
 #		  0.43 - Added flamestack data collection for kernel and userland
 #		  0.44 - Now checks for sufficient free space in $LOG_DATASET (zpool) before starting
 #		  0.45 - nfsstat -s now runs continuously, as requested by Bayard
+#		  0.46 - Added ARC metadata monitoring
+#		  0.47 - Added monitoring of zpool TXG throughput, sync times, delays for NS4.x / OpenZFS
 #
 #
 
@@ -110,7 +112,7 @@ fi
 #
 function usage
 {
-    $ECHO "Usage: `basename $0` [-h] [-C|-I|-N|-S] [-p zpoolname] -u [ yes | no ] [-P protocol,protocol...] { start | stop | status | tarball | version }\n"
+    $ECHO "Usage: `basename $0` [-h] [-C|-I|-N|-S] [-p zpoolname] -u [ yes | no ] [-P {protocol,protocol... | all | none} ] { start | stop | status | tarball | version }\n"
 }
 
 #
@@ -142,6 +144,7 @@ function help
     $ECHO "  -u [ yes | no ] : Enable or disable the automatic update feature"
     $ECHO "  -P <protocol>   : Enable *only* the given protocol(s) nfs iscsi cifs stmf or a combination"
     $ECHO "                    of multiple protocols, eg: -P nfs,cifs"
+    $ECHO "                    Also takes the options all or none to switch on all protocols, or collect none"
     $ECHO ""
     $ECHO "  -v              : display the version."
     $ECHO "  -help | -h | -? : display this help page.\n"
@@ -896,6 +899,24 @@ function launch_txg_monitor
     unset IFS
 }
 
+function launch_openzfs_txg_monitor
+{
+    IFS=", 	"
+    for poolname in $ZPOOL_NAME
+    do
+        PGREP_STRING="$TXG_MON $poolname"
+        OPENZFS_TXG_MON_PID="`pgrep -fl "$PGREP_STRING" | awk '{print $1}'`"
+        if [ "x$OPENZFS_TXG_MON_PID" == "x" ]; then
+            print_to_log "$OPENZFS_TXG_MON on zpool $poolname" $LOG_DIR/$SAMPLE_DAY/zpool_open_${poolname}.out $FF_DATE_SEP
+            $OPENZFS_TXG_MON $poolname >> $LOG_DIR/$SAMPLE_DAY/zpool_open_${poolname}.out 2>&1 &
+            print_to_log "  Started OpenZFS txg_monitoring on $poolname" $SPARTA_LOG $FF_DATE
+        else
+            print_to_log "  OpenZFS txg_monitor already running for zpool $poolname as PID $OPENZFS_TXG_MON_PID" $SPARTA_LOG $FF_DATE
+        fi
+    done
+    unset IFS
+}
+
 function launch_metaslab
 {
     IFS=", 	"
@@ -923,6 +944,18 @@ function launch_arc_adjust
         print_to_log "  Started ARC adjust monitoring" $SPARTA_LOG $FF_DATE
     else
         print_to_log "  arc_adjust already running as PID $ARC_ADJUST_PID" $SPARTA_LOG $FF_DATE
+    fi
+}
+
+function launch_arc_meta
+{
+    ARC_META_PID="`pgrep -fl $ARC_META | awk '{print $1}'`"
+    if [ "x$ARC_META_PID" == "x" ]; then
+        print_to_log "ARC meta usage" $LOG_DIR/$SAMPLE_DAY/arc_meta.out $FF_DATE_SEP
+        $ARC_META >> $LOG_DIR/$SAMPLE_DAY/arc_meta.out 2>&1 &
+        print_to_log "  Started ARC metadata monitoring" $SPARTA_LOG $FF_DATE
+    else
+        print_to_log "  arc_meta.sh already running as PID $ARC_META_PID" $SPARTA_LOG $FF_DATE
     fi
 }
 
