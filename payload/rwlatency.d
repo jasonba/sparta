@@ -34,8 +34,9 @@ io:::done
     ts[args[0]->b_edev, args[0]->b_lblkno] = 0;
 }
 
-END
+tick-10sec
 {
+    printf("---\n%Y\n", walltimestamp);
     printa(@q);
 
     normalize(@i, (timestamp - start) / 1000000000);
@@ -43,5 +44,10 @@ END
 
     printf("%-30s %11s %11s %11s %11s\n", "", "avg latency", "stddev", "iops", "throughput");
     printa("%-30s %@9uus %@9uus %@9u/s %@8uk/s\n", @a, @v, @i, @b);
+    trunc(@q);
+    trunc(@a);
+    trunc(@i);
+    trunc(@b);
+    trunc(@v);
 }
 

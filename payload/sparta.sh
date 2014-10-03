@@ -4,7 +4,7 @@
 # Program	: sparta.sh
 # Author	: Jason.Banham@Nexenta.COM
 # Date		: 2013-02-04 - 2014-09-26
-# Version	: 0.47
+# Version	: 0.49
 # Usage		: sparta.sh [ -h | -help | start | status | stop | tarball ]
 # Purpose	: Gather performance statistics for a NexentaStor appliance
 # Legal		: Copyright 2013 and 2014, Nexenta Systems, Inc. 
@@ -68,6 +68,8 @@
 #		  0.45 - nfsstat -s now runs continuously, as requested by Bayard
 #		  0.46 - Added ARC metadata monitoring
 #		  0.47 - Added monitoring of zpool TXG throughput, sync times, delays for NS4.x / OpenZFS
+#		  0.48 - Added R/W latency monitoring script for I/O operations
+#		  0.49 - Added OpenZFS write delay monitoring
 #
 #
 
@@ -1070,6 +1072,30 @@ function gather_zpool_iostat
         fi
     done
     unset IFS
+}
+
+function launch_rwlatency
+{
+    RWLATENCY_PID="`pgrep -fl $RWLATENCY | awk '{print $1}'`"
+    if [ "x$RWLATENCY_PID" == "x" ]; then
+        print_to_log "R/W latency sampling" $LOG_DIR/$SAMPLE_DAY/rwlatency.out $FF_DATE_SEP
+	$RWLATENCY >> $LOG_DIR/$SAMPLE_DAY/rwlatency.out 2>&1 &
+	print_to_log "  Started R/W latency sampling" $SPARTA_LOG $FF_DATE
+    else
+	print_to_log "  R/W latency monitoring is already running as PID $RWLATENCY_PID" $SPARTA_LOG $FF_DATE
+    fi
+}
+
+function launch_delay_mintime
+{
+    DELAY_MINTIME_PID="`pgrep -fl $DELAY_MINTIME | awk '{print $1}'`"
+    if [ "x$DELAY_MINTIME_PID" == "x" ]; then
+        print_to_log "OpenZFS write delay sampling" $LOG_DIR/$SAMPLE_DAY/delay_mintime.out $FF_DATE_SEP
+	$DELAY_MINTIME >> $LOG_DIR/$SAMPLE_DAY/delay_mintime.out 2>&1 &
+	print_to_log "  Started OpenZFS write delay sampling" $SPARTA_LOG $FF_DATE
+    else
+	print_to_log "  OpenZFS write delay monitoring is already running as PID $DELAY_MINTIME_PID" $SPARTA_LOG $FF_DATE
+    fi
 }
 
 
