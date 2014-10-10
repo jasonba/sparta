@@ -23,7 +23,7 @@ LOG_DIR=/perflogs
 LOG_DATASET=syspool/perflogs
 LOG_CONFIG=${LOG_DIR}/etc
 LOG_SCRIPTS=${LOG_DIR}/scripts
-/
+LOG_TEMPLATES=${LOG_DIR}/workload_templates
 
 #
 # How much space needs to be available to start logging data (in bytes)

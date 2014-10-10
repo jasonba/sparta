@@ -3,10 +3,12 @@
 # Program       : arc_meta.sh
 # Author        : Jason.Banham@Nexenta.COM
 # Date          : 2014-09-24
-# Version       : 0.01
+# Version       : 0.02
 # Usage         : arc_meta.sh [ sample_time | sample_count ]
-# Purpose       : Look at filesystem statistics for all ZFS (non syspool) filesystems
+# Purpose       : Look at ARC usage on the appliance
 # Legal         : Copyright 2013 and 2014, Nexenta Systems, Inc. 
+# Notes		: Only runs on NexentaStor 4.x systems as the stats aren't exposed to kstat on 3.x
+#	 	  and I don't want to be continuously running mdb -k on a production machine.
 #
 # History       : 0.01 - Initial version
 #                 0.02 - Added usage/help menu

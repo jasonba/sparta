@@ -4,7 +4,7 @@
 # Program	: sparta.sh
 # Author	: Jason.Banham@Nexenta.COM
 # Date		: 2013-02-04 - 2014-09-26
-# Version	: 0.49
+# Version	: 0.50
 # Usage		: sparta.sh [ -h | -help | start | status | stop | tarball ]
 # Purpose	: Gather performance statistics for a NexentaStor appliance
 # Legal		: Copyright 2013 and 2014, Nexenta Systems, Inc. 
@@ -70,6 +70,7 @@
 #		  0.47 - Added monitoring of zpool TXG throughput, sync times, delays for NS4.x / OpenZFS
 #		  0.48 - Added R/W latency monitoring script for I/O operations
 #		  0.49 - Added OpenZFS write delay monitoring
+#		  0.50 - Disabled ARC meta data monitoring on NS3.x as values aren't exposed to kstat interface
 #
 #
 
