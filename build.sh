@@ -1,6 +1,6 @@
 #!/bin/bash
 
-printf "Building ... "
+printf "Building ... \n"
 SPARTA_TARBALL=/var/tmp/sparta.tar
 tar cvf $SPARTA_TARBALL README installer.sh auto-installer.sh payload
 gzip -f $SPARTA_TARBALL
