@@ -4,7 +4,7 @@
 # Program	: sparta.sh
 # Author	: Jason.Banham@Nexenta.COM
 # Date		: 2013-02-04 - 2014-09-26
-# Version	: 0.50
+# Version	: 0.52
 # Usage		: sparta.sh [ -h | -help | start | status | stop | tarball ]
 # Purpose	: Gather performance statistics for a NexentaStor appliance
 # Legal		: Copyright 2013 and 2014, Nexenta Systems, Inc. 
@@ -71,6 +71,8 @@
 #		  0.48 - Added R/W latency monitoring script for I/O operations
 #		  0.49 - Added OpenZFS write delay monitoring
 #		  0.50 - Disabled ARC meta data monitoring on NS3.x as values aren't exposed to kstat interface
+#		  0.51 - Added timestamp based data collection for zil_stat.d script
+#		  0.52 - Added the option to collect the uptime of the system
 #
 #
 
@@ -187,6 +189,7 @@ function script_status
     pgrep -fl "$PRSTAT $PRSTAT_OPTS"
     pgrep -fl "$SPARTA_SHIELD"
     pgrep -fl "$ZPOOL iostat $ZPOOL_IOSTAT_OPTS"
+    pgrep -fl "$ARC_META"
 }
 
 
@@ -203,6 +206,7 @@ function script_kill
     pkill -f "$IOSTAT $IOSTAT_OPTS"
     pkill -f "$PRSTAT $PRSTAT_OPTS"
     pkill -f "$ZPOOL iostat $ZPOOL_IOSTAT_OPTS"
+    pkill -f "$ARC_META"
 }
  
 
@@ -1003,7 +1007,7 @@ function launch_zil_stat
     ZIL_STAT_PID="`pgrep -fl zil_stat\.d | awk '{print $1}'`"
     if [ "x$ZIL_STAT_PID" == "x" ]; then
         print_to_log "zil statistics" $LOG_DIR/$SAMPLE_DAY/zilstat.out $FF_DATE_SEP
-        $ZIL_STAT >> $LOG_DIR/$SAMPLE_DAY/zilstat.out 2>&1 &
+        $ZIL_STAT $ZIL_STAT_OPTS >> $LOG_DIR/$SAMPLE_DAY/zilstat.out 2>&1 &
         print_to_log "  Started zil statistics sampling" $SPARTA_LOG $FF_DATE
     else
         print_to_log "  zil statistics script already running as PID $ZIL_STAT_PID" $SPARTA_LOG $FF_DATE
@@ -1124,6 +1128,12 @@ function gather_memstat
         $ECHO ".\c"
         cursor_pause 5
     done
+}
+
+function gather_uptime
+{
+    print_to_log "  uptime statistics" $SPARTA_LOG $FF_DATE
+    $UPTIME > $LOG_DIR/$SAMPLE_DAY/uptime.out
 }
 
 
