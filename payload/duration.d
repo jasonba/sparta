@@ -6,7 +6,7 @@
  * to write that out to stable storage
  *
  * Author: Adam Leventhal
- * Copyright 2014 Joyent
+ * Copyright 2014 Delphix
  */
 
 #pragma D option quiet

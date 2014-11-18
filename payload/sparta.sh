@@ -3,8 +3,8 @@
 #
 # Program	: sparta.sh
 # Author	: Jason.Banham@Nexenta.COM
-# Date		: 2013-02-04 - 2014-09-26
-# Version	: 0.52
+# Date		: 2013-02-04 - 2014-11-18
+# Version	: 0.53
 # Usage		: sparta.sh [ -h | -help | start | status | stop | tarball ]
 # Purpose	: Gather performance statistics for a NexentaStor appliance
 # Legal		: Copyright 2013 and 2014, Nexenta Systems, Inc. 
@@ -73,6 +73,7 @@
 #		  0.50 - Disabled ARC meta data monitoring on NS3.x as values aren't exposed to kstat interface
 #		  0.51 - Added timestamp based data collection for zil_stat.d script
 #		  0.52 - Added the option to collect the uptime of the system
+#		  0.53 - Adjusted the kmem_reap_100ms.d script to include freemem, lotsfree, minfree, desfree and throttlefree values
 #
 #
 

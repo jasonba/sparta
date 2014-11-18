@@ -4,7 +4,7 @@
  * Script to observe the number of delayed writes
  *
  * Author: Adam Leventhal
- * Copyright 2014 Joyent
+ * Copyright 2014 Delphix
  */
 
 #pragma D option quiet

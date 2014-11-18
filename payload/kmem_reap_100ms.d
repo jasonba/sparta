@@ -45,8 +45,9 @@ fbt::dnlc_reduce_cache:return,
 fbt::kmem_reap:return
 /self->start[probefunc] && self->in_kmem && ((self->end[probefunc] = timestamp - self->start[probefunc]) > 100000000)/
 {
-        printf("%Y %d ms", walltimestamp,
-                (timestamp - self->start[probefunc]) / 1000000);
+        printf("%Y %d ms, freemem = %d lotsfree = %d desfree = %d minfree = %d throttlefree = %d", walltimestamp,
+                (timestamp - self->start[probefunc]) / 1000000,
+	        `freemem, `lotsfree, `desfree, `minfree, `throttlefree);
         self->start[probefunc] = NULL;
 }
 
@@ -65,7 +66,9 @@ kmem_depot_ws_reap:return
 /self->i && ((self->ts_end[probefunc] = timestamp - self->start[probefunc]) > 100000000)/
 {
         self->i = NULL;
-        printf("%Y %s %d ms %d mags %d slabs", walltimestamp, self->kct->cache_name, (self->ts_end[probefunc])/1000000, self->magcount, self->slabcount);
+        printf("%Y %s %d ms %d mags %d slabs, freemem = %d lotsfree = %d desfree = %d minfree = %d throttlefree = %d", 
+		walltimestamp, self->kct->cache_name, (self->ts_end[probefunc])/1000000, self->magcount, self->slabcount,
+            	`freemem, `lotsfree, `desfree, `minfree, `throttlefree);
         self->start[probefunc] = NULL;
 
 }
@@ -81,8 +84,9 @@ kmem_depot_ws_reap:return
 fbt::arc_kmem_reap_now:return
 /self->start[probefunc] && ((self->end[probefunc] = timestamp - self->start[probefunc]) > 100000000)/
 {
-        printf("%Y %d ms, strategy %d", walltimestamp,
-                (timestamp - self->start[probefunc]) / 1000000, self->strategy);
+        printf("%Y %d ms, strategy %d, freemem = %d lotsfree = %d desfree = %d minfree = %d throttlefree = %d", 
+		walltimestamp, (timestamp - self->start[probefunc]) / 1000000, self->strategy,
+        	`freemem, `lotsfree, `desfree, `minfree, `throttlefree);
         self->start[probefunc] = NULL;
         self->in_kmem = NULL;
 }

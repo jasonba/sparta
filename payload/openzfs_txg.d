@@ -6,7 +6,7 @@
  * close we are to the limit.
  *
  * Author: Adam Leventhal
- * Copyright 2014 Joyent
+ * Copyright 2014 Delphix
  */
 
 #pragma D option quiet
