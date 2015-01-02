@@ -3,8 +3,8 @@
 #
 # Program	: sparta.sh
 # Author	: Jason.Banham@Nexenta.COM
-# Date		: 2013-02-04 - 2014-11-18
-# Version	: 0.53
+# Date		: 2013-02-04 - 2015-01-02
+# Version	: 0.54
 # Usage		: sparta.sh [ -h | -help | start | status | stop | tarball ]
 # Purpose	: Gather performance statistics for a NexentaStor appliance
 # Legal		: Copyright 2013 and 2014, Nexenta Systems, Inc. 
@@ -74,6 +74,7 @@
 #		  0.51 - Added timestamp based data collection for zil_stat.d script
 #		  0.52 - Added the option to collect the uptime of the system
 #		  0.53 - Adjusted the kmem_reap_100ms.d script to include freemem, lotsfree, minfree, desfree and throttlefree values
+#		  0.54 - Added the 'space' command to sparta to show uncompressed space usage in the $LOG_DIR
 #
 #
 
@@ -118,7 +119,7 @@ fi
 #
 function usage
 {
-    $ECHO "Usage: `basename $0` [-h] [-C|-I|-N|-S] [-p zpoolname] -u [ yes | no ] [-P {protocol,protocol... | all | none} ] { start | stop | status | tarball | version }\n"
+    $ECHO "Usage: `basename $0` [-h] [-C|-I|-N|-S] [-p zpoolname] -u [ yes | no ] [-P {protocol,protocol... | all | none} ] { start | stop | status | tarball | version | space }\n"
 }
 
 #
@@ -140,6 +141,7 @@ function help
     $ECHO "    stop          : attempt to stop the dtrace scripts it started."
     $ECHO "    tarball       : generate a tarball of the performance data."
     $ECHO "    version       : display the version."
+    $ECHO "    space         : show uncompressed space usage in $LOG_DIR"
     $ECHO ""
     $ECHO "The following are valid optional arguments:\n"
     $ECHO "  -C              : Enable CIFS data collection (in addition to existing protocols)"
@@ -609,6 +611,11 @@ subcommand="$1"
 # Check for a supplied command and act appropriately
 #
 case "$subcommand" in
+    space )
+	SPACE_USED=`calc_space $LOG_DIR`
+        echo "You are using `expr $SPACE_USED / $MEGABYTE` MB (uncompressed) in the $LOG_DIR directory for performance data." 
+	exit 0
+	;;
     start )
 	# Break out of this case statement and into the main body of code
 	;;
