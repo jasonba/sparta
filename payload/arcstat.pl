@@ -1,4 +1,7 @@
-#!/usr/perl5/bin/perl -w
+#!/usr/bin/env perl
+##!/usr/perl5/bin/perl -w
+# The above invocation line was changed in 0.5 to allow for
+# interoperability with linux.
 #
 # Print out ZFS ARC Statistics exported via kstat(1)
 # For a definition of fields, or usage, use arctstat.pl -v
@@ -49,7 +52,7 @@ use Getopt::Long;
 use IO::Handle;
 
 my %cols = (# HDR => [Size, Scale, Description]
-	"time"		=>[8, -1, "Time"],
+	"time"		=>[28, -1, "Time"],
 	"hits"		=>[4, 1000, "ARC reads per second"],
 	"miss"		=>[4, 1000, "ARC misses per second"],
 	"read"		=>[4, 1000, "Total ARC accesses per second"],
@@ -96,7 +99,7 @@ my $hdr_intr = 20;	# Print header every 20 lines of output
 my $opfile = "";
 my $sep = "  ";		# Default separator is 2 spaces
 my $raw_output;
-my $version = "0.4";
+my $version = "0.5";
 my $l2exist = 0;
 my $cmd = "Usage: arcstat [-hvxr] [-f fields] [-o file] [-s string] " .
     "[interval [count]]\n";
@@ -282,7 +285,7 @@ sub calculate {
 	if ($raw_output) {
 		$v{"time"} = strftime("%s", localtime);
 	} else {
-		$v{"time"} = strftime("%H:%M:%S", localtime);
+		$v{"time"} = strftime("%a %b %e %H:%M:%S %Z %Y", localtime);
 	}
 
 	$v{"hits"} = $d{"hits"}/$int;

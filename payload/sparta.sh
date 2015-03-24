@@ -3,8 +3,8 @@
 #
 # Program	: sparta.sh
 # Author	: Jason.Banham@Nexenta.COM
-# Date		: 2013-02-04 - 2015-01-02
-# Version	: 0.54
+# Date		: 2013-02-04 - 2015-03-24
+# Version	: 0.56
 # Usage		: sparta.sh [ -h | -help | start | status | stop | tarball ]
 # Purpose	: Gather performance statistics for a NexentaStor appliance
 # Legal		: Copyright 2013 and 2014, Nexenta Systems, Inc. 
@@ -75,6 +75,10 @@
 #		  0.52 - Added the option to collect the uptime of the system
 #		  0.53 - Adjusted the kmem_reap_100ms.d script to include freemem, lotsfree, minfree, desfree and throttlefree values
 #		  0.54 - Added the 'space' command to sparta to show uncompressed space usage in the $LOG_DIR
+#		  0.55 - Added some smbstat monitoring for thread utilisation and iops statistics
+#			 Modified arcstat.pl for portability and to print date+time stamps (thanks Tony Nguyen)
+#			 We now also collect some log and misc files to assist analysis (see $OTHER_FILE_LIST)
+#		  0.56 - Fixed bug in OpenZFS TXG monitoring that sampled at the wrong time, leading to odd numbers
 #
 #
 
@@ -1326,6 +1330,22 @@ function gather_cifs_share_output
     $SHARECTL get smb > $LOG_DIR/$SAMPLE_DAY/sharectl_get_smb.out
 }
 
+function launch_cifs_util
+{
+    $PGREP -fl "$SMBSTAT $SMB_UTIL_OPTS" > /dev/null 2>&1
+    if [ $? -ne 0 ]; then
+	$SMBSTAT $SMB_UTIL_OPTS >> $LOG_DIR/$SAMPLE_DAY/{$1} 2>&1 &
+    fi
+}
+
+function launch_cifs_ops
+{
+    $PGREP -fl "$SMBSTAT $SMB_OPS_OPTS" > /dev/null 2>&1
+    if [ $? -ne 0 ]; then
+	$SMBSTAT $SMB_OPS_OPTS >> $LOG_DIR/$SAMPLE_DAY/{$1} 2>&1 &
+    fi
+}
+
 
 
 
@@ -1401,16 +1421,27 @@ fi
 
 
 #
-# Collect the defined configuration files of interest
+# Collect the defined configuration and other files of interest
 #
 
-$ECHO "Collecting configuration files ... \c"
+$ECHO "Collecting configuration and other files of interest ... \c"
 print_to_log "#############################" $SPARTA_LOG $FF_NEWL
 
 print_to_log "Collecting configuration files first" $SPARTA_LOG $FF_DATE
 for config_file in ${CONFIG_FILE_LIST}
 do
     $CP $config_file $LOG_DIR/
+done
+
+FILE_LIMIT="`expr $MEGABYTE \* 50`"
+for other_file in ${OTHER_FILE_LIST}
+do
+    FILESIZE="`$STAT -c%s $other_file`"
+    if [ $FILESIZE -lt $FILE_LIMIT ]; then
+	$CP $other_file $LOG_DIR/
+    else
+        $ECHO "File exceeded $FILE_LIMIT - did not collect" > $LOG_DIR/`basename $other_file`
+    fi
 done
 $ECHO "done"
 
