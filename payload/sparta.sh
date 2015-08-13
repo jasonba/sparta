@@ -3,8 +3,8 @@
 #
 # Program	: sparta.sh
 # Author	: Jason.Banham@Nexenta.COM
-# Date		: 2013-02-04 - 2015-03-24
-# Version	: 0.56
+# Date		: 2013-02-04 - 2015-08-13
+# Version	: 0.58
 # Usage		: sparta.sh [ -h | -help | start | status | stop | tarball ]
 # Purpose	: Gather performance statistics for a NexentaStor appliance
 # Legal		: Copyright 2013 and 2014, Nexenta Systems, Inc. 
@@ -79,6 +79,8 @@
 #			 Modified arcstat.pl for portability and to print date+time stamps (thanks Tony Nguyen)
 #			 We now also collect some log and misc files to assist analysis (see $OTHER_FILE_LIST)
 #		  0.56 - Fixed bug in OpenZFS TXG monitoring that sampled at the wrong time, leading to odd numbers
+#		  0.57 - Renamed ZFS/OpenZFS TXG output filenames (now as zfstxg_zpoolname.out)
+#		  0.58 - Adjusted config to pick the no strategy script for NS4.0.4 after Illumos #5376 fix
 #
 #
 
@@ -212,6 +214,7 @@ function script_kill
     pkill -f "$MPSTAT $MPSTAT_OPTS"
     pkill -f "$IOSTAT $IOSTAT_OPTS"
     pkill -f "$PRSTAT $PRSTAT_OPTS"
+    pkill -f "$SPARTA_SHIELD"
     pkill -f "$ZPOOL iostat $ZPOOL_IOSTAT_OPTS"
     pkill -f "$ARC_META"
 }
@@ -908,8 +911,8 @@ function launch_txg_monitor
         PGREP_STRING="$TXG_MON $poolname"
         TXG_MON_PID="`pgrep -fl "$PGREP_STRING" | awk '{print $1}'`"
         if [ "x$TXG_MON_PID" == "x" ]; then
-            print_to_log "$TXG_MON on zpool $poolname" $LOG_DIR/$SAMPLE_DAY/zpool_${poolname}.out $FF_DATE_SEP
-            $TXG_MON $poolname >> $LOG_DIR/$SAMPLE_DAY/zpool_${poolname}.out 2>&1 &
+            print_to_log "$TXG_MON on zpool $poolname" $LOG_DIR/$SAMPLE_DAY/zfstxg_${poolname}.out $FF_DATE_SEP
+            $TXG_MON $poolname >> $LOG_DIR/$SAMPLE_DAY/zfstxg_${poolname}.out 2>&1 &
             print_to_log "  Started txg_monitoring on $poolname" $SPARTA_LOG $FF_DATE
         else
             print_to_log "  txg_monitor already running for zpool $poolname as PID $TXG_MON_PID" $SPARTA_LOG $FF_DATE
@@ -926,8 +929,8 @@ function launch_openzfs_txg_monitor
         PGREP_STRING="$TXG_MON $poolname"
         OPENZFS_TXG_MON_PID="`pgrep -fl "$PGREP_STRING" | awk '{print $1}'`"
         if [ "x$OPENZFS_TXG_MON_PID" == "x" ]; then
-            print_to_log "$OPENZFS_TXG_MON on zpool $poolname" $LOG_DIR/$SAMPLE_DAY/zpool_open_${poolname}.out $FF_DATE_SEP
-            $OPENZFS_TXG_MON $poolname >> $LOG_DIR/$SAMPLE_DAY/zpool_open_${poolname}.out 2>&1 &
+            print_to_log "$OPENZFS_TXG_MON on zpool $poolname" $LOG_DIR/$SAMPLE_DAY/zfstxg_open_${poolname}.out $FF_DATE_SEP
+            $OPENZFS_TXG_MON $poolname >> $LOG_DIR/$SAMPLE_DAY/zfstxg_open_${poolname}.out 2>&1 &
             print_to_log "  Started OpenZFS txg_monitoring on $poolname" $SPARTA_LOG $FF_DATE
         else
             print_to_log "  OpenZFS txg_monitor already running for zpool $poolname as PID $OPENZFS_TXG_MON_PID" $SPARTA_LOG $FF_DATE
