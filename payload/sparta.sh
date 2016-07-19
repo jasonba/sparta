@@ -3,11 +3,11 @@
 #
 # Program	: sparta.sh
 # Author	: Jason.Banham@Nexenta.COM
-# Date		: 2013-02-04 - 2015-08-13
-# Version	: 0.58
+# Date		: 2013-02-04 - 2016-07-19
+# Version	: 0.60
 # Usage		: sparta.sh [ -h | -help | start | status | stop | tarball ]
 # Purpose	: Gather performance statistics for a NexentaStor appliance
-# Legal		: Copyright 2013 and 2014, Nexenta Systems, Inc. 
+# Legal		: Copyright 2013, 2014, 2015 and 2016 Nexenta Systems, Inc. 
 #
 # History	: 0.01 - Initial version
 #		  0.02 - Added DNLC lookup and prstat functions
@@ -81,6 +81,8 @@
 #		  0.56 - Fixed bug in OpenZFS TXG monitoring that sampled at the wrong time, leading to odd numbers
 #		  0.57 - Renamed ZFS/OpenZFS TXG output filenames (now as zfstxg_zpoolname.out)
 #		  0.58 - Adjusted config to pick the no strategy script for NS4.0.4 after Illumos #5376 fix
+#		  0.59 - Added in log rotation functionality that had been requested
+#		  0.60 - Added in kmastat and kmem_slabs data collection at start time
 #
 #
 
@@ -734,7 +736,6 @@ function do_log
 	return 0
     fi
     print_to_log "$MONITOR_NAME data gathering" $SPARTA_LOG $FF_DATE
-    print_to_log "$MONITOR_COMMAND $MONITOR_OPTS" $LOG_DIR/$SAMPLE_DAY/${MONITOR_NAME} $FF_DATE_SEP
 }
 
 ### CPU/load specific section
@@ -750,7 +751,7 @@ function launch_vmstat
 {
     $PGREP -fl "$VMSTAT $VMSTAT_OPTS" > /dev/null 2>&1
     if [ $? -ne 0 ]; then
-        $VMSTAT $VMSTAT_OPTS >> $LOG_DIR/$SAMPLE_DAY/${1} 2>&1 &
+        $VMSTAT $VMSTAT_OPTS | $ROTATELOGS $LOG_DIR/samples/${1}.%Y-%m-%d_%H_%M $LOG_ROTATE_TIME 2>&1 &
     fi
 }
 
@@ -758,7 +759,7 @@ function launch_mpstat
 {
     $PGREP -fl "$MPSTAT $MPSTAT_OPTS" > /dev/null 2>&1
     if [ $? -ne 0 ]; then
-        $MPSTAT $MPSTAT_OPTS >> $LOG_DIR/$SAMPLE_DAY/${1} 2>&1 &
+        $MPSTAT $MPSTAT_OPTS | $ROTATELOGS $LOG_DIR/samples/${1}.%Y-%m-%d_%H_%M $LOG_ROTATE_TIME 2>&1 &
     fi
 }
 
@@ -766,23 +767,23 @@ function launch_prstat
 {
     $PGREP -fl "$PRSTAT $PRSTAT_OPTS" > /dev/null 2>&1
     if [ $? -ne 0 ]; then
-        $PRSTAT $PRSTAT_OPTS >> $LOG_DIR/$SAMPLE_DAY/${1} 2>&1 &
+        $PRSTAT $PRSTAT_OPTS | $ROTATELOGS $LOG_DIR/samples/${1}.%Y-%m-%d_%H_%M $LOG_ROTATE_TIME 2>&1 &
     fi
 }
 
 function gather_psrinfo
 {
-    $PSRINFO $PSRINFO_OPTS > $LOG_DIR/$SAMPLE_DAY/${1} 2>&1
+    $PSRINFO $PSRINFO_OPTS > $LOG_DIR/samples/${1} 2>&1
 }
 
 function gather_cstate
 {
-    $KSTAT | grep -i cstate > $LOG_DIR/$SAMPLE_DAY/${1} 2>&1
+    $KSTAT | grep -i cstate > $LOG_DIR/samples/${1} 2>&1
 }
 
 function gather_interrupts
 {
-    $ECHO "::interrupts -d" | $MDB -k > $LOG_DIR/$SAMPLE_DAY/${1} 2>&1
+    $ECHO "::interrupts -d" | $MDB -k > $LOG_DIR/samples/${1} 2>&1
 }
 
 
@@ -792,8 +793,8 @@ function launch_hotkernel
 {
     for x in {1..3}
     do
-        print_to_log "Sample $x" $LOG_DIR/$SAMPLE_DAY/${1} $FF_DATE_SEP
-        $HOTKERNEL >> $LOG_DIR/$SAMPLE_DAY/$1 2>&1 &
+        print_to_log "Sample $x" $LOG_DIR/samples/${1} $FF_DATE_SEP
+        $HOTKERNEL >> $LOG_DIR/samples/$1 2>&1 &
         $ECHO ". \c"
         let count=0
         while [ $count -lt $HOTKERNEL_SAMPLE_TIME ]; do
@@ -824,8 +825,7 @@ function launch_kmem_reap
 {
     KMEM_REAP_PID="`pgrep -fl $KMEM_REAP | awk '{print $1}'`"
     if [ "x$KMEM_REAP_PID" == "x" ]; then
-        print_to_log "kmem_reap" $LOG_DIR/$SAMPLE_DAY/${1} $FF_DATE_SEP
-        $KMEM_REAP >> $LOG_DIR/$SAMPLE_DAY/${1} 2>&1 &
+        $KMEM_REAP 2>&1 | $ROTATELOGS $LOG_DIR/samples/${1}.%Y-%m-%d_%H_%M $LOG_ROTATE_TIME 2>&1 &
         print_to_log "  Started kmem_reap monitoring" $SPARTA_LOG $FF_DATE
     else
         print_to_log "  kmem_reap already running as PID $KMEM_REAP_PID" $SPARTA_LOG $FF_DATE
@@ -846,7 +846,7 @@ function gather_flame_stacks
 {
     print_to_log "Collecting kernel/user stacks" $SPARTA_LOG $FF_DATE
     print_to_log "  Starting kernel stack collection" $SPARTA_LOG $FF_DATE
-    $FLAME_STACKS -k > $LOG_DIR/$SAMPLE_DAY/flame_kernel_stacks.out 2>&1 &
+    $FLAME_STACKS -k > $LOG_DIR/samples/flame_kernel_stacks.out 2>&1 &
     $ECHO ". \c"
     let count=0
     while [ $count -lt $FLAME_STACKS_SAMPLE_TIME ]; do
@@ -857,7 +857,7 @@ function gather_flame_stacks
     cursor_blank
 
     print_to_log "  Starting userland stack collection" $SPARTA_LOG $FF_DATE
-    $FLAME_STACKS -k > $LOG_DIR/$SAMPLE_DAY/flame_user_stacks.out 2>&1 &
+    $FLAME_STACKS -k > $LOG_DIR/samples/flame_user_stacks.out 2>&1 &
     $ECHO ". \c"
     let count=0
     while [ $count -lt $FLAME_STACKS_SAMPLE_TIME ]; do
@@ -868,19 +868,48 @@ function gather_flame_stacks
     cursor_blank
 }
 
+function gather_kmastat
+{
+    print_to_log "Collecting kernel kmastat data" $SPARTA_LOG $FF_DATE
+    $ECHO ". \c"
+    let count=0
+    while [ $count -lt $KMASTAT_SAMPLE_COUNT ]; do
+        print_to_log "Sample $count" $LOG_DIR/samples/kmastat.out $FF_DATE_SEP
+	$ECHO "::kmastat -g" | $MDB -k >> $LOG_DIR/samples/kmastat.out 2>&1
+        cursor_update
+        sleep 1
+        let count=$count+1
+    done
+    cursor_blank
+}
+
+function gather_kmemslabs
+{
+    print_to_log "Collecting kernel kmem slabs data" $SPARTA_LOG $FF_DATE
+    $ECHO ". \c"
+    let count=0
+    while [ $count -lt $KMEMSLABS_SAMPLE_COUNT ]; do
+        print_to_log "Sample $count" $LOG_DIR/samples/kmem_slabs.out $FF_DATE_SEP
+	$ECHO "::kmem_slabs" | $MDB -k >> $LOG_DIR/samples/kmem_slabs.out 2>&1
+        cursor_update
+        sleep 1
+        let count=$count+1
+    done
+    cursor_blank
+}
 
 ### Network specific tool section
 
 function gather_ifconfig
 {
-    $IFCONFIG -a > $LOG_DIR/$SAMPLE_DAY/${1}
+    $IFCONFIG -a > $LOG_DIR/samples/${1}
 }
 
 function gather_dladm
 {
-    $DLADM show-phys > $LOG_DIR/$SAMPLE_DAY/dladm-show-phys.out
-    $DLADM show-link > $LOG_DIR/$SAMPLE_DAY/dladm-show-link.out
-    $DLADM show-linkprop > $LOG_DIR/$SAMPLE_DAY/dladm-show-linkprop.out
+    $DLADM show-phys > $LOG_DIR/samples/dladm-show-phys.out
+    $DLADM show-link > $LOG_DIR/samples/dladm-show-link.out
+    $DLADM show-linkprop > $LOG_DIR/samples/dladm-show-linkprop.out
 }
 
 
@@ -911,8 +940,7 @@ function launch_txg_monitor
         PGREP_STRING="$TXG_MON $poolname"
         TXG_MON_PID="`pgrep -fl "$PGREP_STRING" | awk '{print $1}'`"
         if [ "x$TXG_MON_PID" == "x" ]; then
-            print_to_log "$TXG_MON on zpool $poolname" $LOG_DIR/$SAMPLE_DAY/zfstxg_${poolname}.out $FF_DATE_SEP
-            $TXG_MON $poolname >> $LOG_DIR/$SAMPLE_DAY/zfstxg_${poolname}.out 2>&1 &
+            $TXG_MON $poolname | $ROTATELOGS $LOG_DIR/samples/zfstxg_${poolname}.out.%Y-%m-%d_%H_%M $LOG_ROTATE_TIME 2>&1 &
             print_to_log "  Started txg_monitoring on $poolname" $SPARTA_LOG $FF_DATE
         else
             print_to_log "  txg_monitor already running for zpool $poolname as PID $TXG_MON_PID" $SPARTA_LOG $FF_DATE
@@ -929,8 +957,7 @@ function launch_openzfs_txg_monitor
         PGREP_STRING="$TXG_MON $poolname"
         OPENZFS_TXG_MON_PID="`pgrep -fl "$PGREP_STRING" | awk '{print $1}'`"
         if [ "x$OPENZFS_TXG_MON_PID" == "x" ]; then
-            print_to_log "$OPENZFS_TXG_MON on zpool $poolname" $LOG_DIR/$SAMPLE_DAY/zfstxg_open_${poolname}.out $FF_DATE_SEP
-            $OPENZFS_TXG_MON $poolname >> $LOG_DIR/$SAMPLE_DAY/zfstxg_open_${poolname}.out 2>&1 &
+            $OPENZFS_TXG_MON $poolname | $ROTATELOGS $LOG_DIR/samples/zfstxg_open_${poolname}.out.%Y-%m-%d_%H_%M $LOG_ROTATE_TIME 2>&1 &
             print_to_log "  Started OpenZFS txg_monitoring on $poolname" $SPARTA_LOG $FF_DATE
         else
             print_to_log "  OpenZFS txg_monitor already running for zpool $poolname as PID $OPENZFS_TXG_MON_PID" $SPARTA_LOG $FF_DATE
@@ -947,8 +974,7 @@ function launch_metaslab
         PGREP_STRING="$METASLAB_ALLOC -p $poolname"
         METASLAB_MON_PID="`pgrep -fl "$PGREP_STRING" | awk '{print $1}'`"
         if [ "x$METASLAB_MON_PID" == "x" ]; then
-            print_to_log "$METASLAB_ALLOC on zpool $poolname" $LOG_DIR/$SAMPLE_DAY/metaslab_${poolname}.out $FF_DATE_SEP
-            $METASLAB_ALLOC -p $poolname >> $LOG_DIR/$SAMPLE_DAY/metaslab_${poolname}.out 2>&1 &
+            $METASLAB_ALLOC -p $poolname | $ROTATELOGS $LOG_DIR/samples/metaslab_${poolname}.out.%Y-%m-%d_%H_%M $LOG_ROTATE_TIME 2>&1 &
             print_to_log "  Started metaslab monitoring on $poolname" $SPARTA_LOG $FF_DATE
         else
             print_to_log "  metaslab monitoring already running for zpool $poolname as PID $METASLAB_MON_PID" $SPARTA_LOG $FF_DATE
@@ -961,8 +987,7 @@ function launch_arc_adjust
 {
     ARC_ADJUST_PID="`pgrep -fl $ARC_ADJUST | awk '{print $1}'`"
     if [ "x$ARC_ADJUST_PID" == "x" ]; then
-        print_to_log "ARC adjust" $LOG_DIR/$SAMPLE_DAY/arc_adjust.out $FF_DATE_SEP
-        $ARC_ADJUST >> $LOG_DIR/$SAMPLE_DAY/arc_adjust.out 2>&1 &
+        $ARC_ADJUST | $ROTATELOGS $LOG_DIR/samples/arc_adjust.out.%Y-%m-%d_%H_%M $LOG_ROTATE_TIME 2>&1 &
         print_to_log "  Started ARC adjust monitoring" $SPARTA_LOG $FF_DATE
     else
         print_to_log "  arc_adjust already running as PID $ARC_ADJUST_PID" $SPARTA_LOG $FF_DATE
@@ -973,8 +998,7 @@ function launch_arc_meta
 {
     ARC_META_PID="`pgrep -fl $ARC_META | awk '{print $1}'`"
     if [ "x$ARC_META_PID" == "x" ]; then
-        print_to_log "ARC meta usage" $LOG_DIR/$SAMPLE_DAY/arc_meta.out $FF_DATE_SEP
-        $ARC_META >> $LOG_DIR/$SAMPLE_DAY/arc_meta.out 2>&1 &
+        $ARC_META | $ROTATELOGS $LOG_DIR/samples/arc_meta.out.%Y-%m-%d_%H_%M $LOG_ROTATE_TIME 2>&1 &
         print_to_log "  Started ARC metadata monitoring" $SPARTA_LOG $FF_DATE
     else
         print_to_log "  arc_meta.sh already running as PID $ARC_META_PID" $SPARTA_LOG $FF_DATE
@@ -986,8 +1010,8 @@ function gather_arc_mdb
     for x in {1..3}
     do
         print_to_log "  arc statistics - sample ${x}" $SPARTA_LOG $FF_DATE
-        print_to_log "::arc data - sample ${x}" $LOG_DIR/$SAMPLE_DAY/arc.out $FF_DATE_SEP
-        $ECHO "::arc" | $MDB -k >> $LOG_DIR/$SAMPLE_DAY/arc.out
+        print_to_log "::arc data - sample ${x}" $LOG_DIR/samples/arc.out $FF_DATE_SEP
+        $ECHO "::arc" | $MDB -k >> $LOG_DIR/samples/arc.out
         $ECHO ".\c"
         cursor_pause 5
     done 
@@ -997,8 +1021,7 @@ function launch_arcstat
 {
     ARCSTAT_PL_PID="`pgrep -fl $ARCSTAT_PL | awk '{print $1}'`"
     if [ "x$ARCSTAT_PL_PID" == "x" ]; then
-        print_to_log "arcstat.pl" $LOG_DIR/$SAMPLE_DAY/arcstat.out $FF_DATE_SEP
-        $ARCSTAT_PL $ARCSTAT_SLEEP >> $LOG_DIR/$SAMPLE_DAY/arcstat.out 2>&1 &
+        $ARCSTAT_PL $ARCSTAT_SLEEP | $ROTATELOGS $LOG_DIR/samples/arcstat.out.%Y-%m-%d_%H_%M $LOG_ROTATE_TIME 2>&1 &
         print_to_log "  Started ARCstat monitoring" $SPARTA_LOG $FF_DATE
     else
         print_to_log "  arcstat.pl already running as PID $ARCSTAT_PL_PID" $SPARTA_LOG $FF_DATE
@@ -1009,8 +1032,7 @@ function launch_zil_commit
 {
     ZIL_COMMIT_TIME_PID="`pgrep -fl $ZIL_COMMIT_TIME | awk '{print $1}'`"
     if [ "x$ZIL_COMMIT_TIME_PID" == "x" ]; then
-        print_to_log "zil commit time" $LOG_DIR/$SAMPLE_DAY/zil_commit.out $FF_DATE_SEP
-        $ZIL_COMMIT_TIME >> $LOG_DIR/$SAMPLE_DAY/zil_commit.out 2>&1 &
+        $ZIL_COMMIT_TIME | $ROTATELOGS $LOG_DIR/samples/zil_commit.out.%Y-%m-%d_%H_%M $LOG_ROTATE_TIME 2>&1 &
         print_to_log "  Started zil commit time sampling" $SPARTA_LOG $FF_DATE
     else
         print_to_log "  zil commit time script already running as PID $ZIL_COMMIT_TIME_PID" $SPARTA_LOG $FF_DATE
@@ -1021,8 +1043,7 @@ function launch_zil_stat
 {
     ZIL_STAT_PID="`pgrep -fl zil_stat\.d | awk '{print $1}'`"
     if [ "x$ZIL_STAT_PID" == "x" ]; then
-        print_to_log "zil statistics" $LOG_DIR/$SAMPLE_DAY/zilstat.out $FF_DATE_SEP
-        $ZIL_STAT $ZIL_STAT_OPTS >> $LOG_DIR/$SAMPLE_DAY/zilstat.out 2>&1 &
+        $ZIL_STAT $ZIL_STAT_OPTS | $ROTATELOGS $LOG_DIR/samples/zilstat.out.%Y-%m-%d_%H_%M $LOG_ROTATE_TIME 2>&1 &
         print_to_log "  Started zil statistics sampling" $SPARTA_LOG $FF_DATE
     else
         print_to_log "  zil statistics script already running as PID $ZIL_STAT_PID" $SPARTA_LOG $FF_DATE
@@ -1046,12 +1067,12 @@ function gather_zfs_params
 
 function gather_zpool_status
 {
-    $ZPOOL status >> $LOG_DIR/$SAMPLE_DAY/zpool_status.out 2>&1
+    $ZPOOL status >> $LOG_DIR/samples/zpool_status.out 2>&1
 }
 
 function gather_zpool_list
 {
-    $ZPOOL list >> $LOG_DIR/$SAMPLE_DAY/zpool_list.out 2>&1
+    $ZPOOL list >> $LOG_DIR/samples/zpool_list.out 2>&1
 }
 
 function gather_zfs_get
@@ -1059,7 +1080,7 @@ function gather_zfs_get
     IFS=", 	"
     for poolname in $ZPOOL_NAME
     do
-        $ZFS get -r all $poolname >> $LOG_DIR/$SAMPLE_DAY/zfs_get-r_all.${poolname}.out 2>&1
+        $ZFS get -r all $poolname >> $LOG_DIR/samples/zfs_get-r_all.${poolname}.out 2>&1
     done
     unset IFS
 }
@@ -1068,8 +1089,7 @@ function launch_large_file_delete
 {
     LARGE_DELETE_PID="`pgrep -fl $LARGE_DELETE | awk '{print $1}'`"
     if [ "x$LARGE_DELETE_PID" == "x" ]; then
-        print_to_log "large delete monitoring" $LOG_DIR/$SAMPLE_DAY/large_delete.out $FF_DATE_SEP
-        $LARGE_DELETE >> $LOG_DIR/$SAMPLE_DAY/large_delete.out 2>&1 &
+        $LARGE_DELETE 2>&1 | $ROTATELOGS $LOG_DIR/samples/large_delete.out.%Y-%m-%d_%H_%M $LOG_ROTATE_TIME 2>&1 &
         print_to_log "  Started monitoring of large deletes" $SPARTA_LOG $FF_DATE
     else
         print_to_log "  large delete script already running as PID $LARGE_DELETE_PID" $SPARTA_LOG $FF_DATE
@@ -1084,8 +1104,7 @@ function gather_zpool_iostat
         PGREP_STRING="$ZPOOL iostat $ZPOOL_IOSTAT_OPTS $poolname $ZPOOL_IOSTAT_FREQ"
         ZPOOL_IOSTAT_PID="`pgrep -fl "$PGREP_STRING" | awk '{print $1}'`"
         if [ "x$ZPOOL_IOSTAT_PID" == "x" ]; then
-            print_to_log "$ZPOOL iostat on zpool $poolname" $LOG_DIR/$SAMPLE_DAY/zpool_iostat_${poolname}.out $FF_DATE_SEP
-            $ZPOOL iostat $ZPOOL_IOSTAT_OPTS $poolname $ZPOOL_IOSTAT_FREQ >> $LOG_DIR/$SAMPLE_DAY/zpool_iostat_${poolname}.out 2>&1 &
+            $ZPOOL iostat $ZPOOL_IOSTAT_OPTS $poolname $ZPOOL_IOSTAT_FREQ | $ROTATELOGS $LOG_DIR/samples/zpool_iostat_${poolname}.out.%Y-%m-%d_%H_%M $LOG_ROTATE_TIME 2>&1 &
             print_to_log "Started zpool iostat $ZPOOL_IOSTAT_OPTS $poolname $ZPOOL_IOSTAT_FREQ" $SPARTA_LOG $FF_DATE
         else
             print_to_log "zpool iostat already running for zpool $poolname as PID $ZPOOL_IOSTAT_PID" $SPARTA_LOG $FF_DATE
@@ -1098,8 +1117,7 @@ function launch_rwlatency
 {
     RWLATENCY_PID="`pgrep -fl $RWLATENCY | awk '{print $1}'`"
     if [ "x$RWLATENCY_PID" == "x" ]; then
-        print_to_log "R/W latency sampling" $LOG_DIR/$SAMPLE_DAY/rwlatency.out $FF_DATE_SEP
-	$RWLATENCY >> $LOG_DIR/$SAMPLE_DAY/rwlatency.out 2>&1 &
+	$RWLATENCY | $ROTATELOGS $LOG_DIR/samples/rwlatency.out.%Y-%m-%d_%H_%M $LOG_ROTATE_TIME 2>&1 &
 	print_to_log "  Started R/W latency sampling" $SPARTA_LOG $FF_DATE
     else
 	print_to_log "  R/W latency monitoring is already running as PID $RWLATENCY_PID" $SPARTA_LOG $FF_DATE
@@ -1110,8 +1128,7 @@ function launch_delay_mintime
 {
     DELAY_MINTIME_PID="`pgrep -fl $DELAY_MINTIME | awk '{print $1}'`"
     if [ "x$DELAY_MINTIME_PID" == "x" ]; then
-        print_to_log "OpenZFS write delay sampling" $LOG_DIR/$SAMPLE_DAY/delay_mintime.out $FF_DATE_SEP
-	$DELAY_MINTIME >> $LOG_DIR/$SAMPLE_DAY/delay_mintime.out 2>&1 &
+	$DELAY_MINTIME | $ROTATELOGS $LOG_DIR/samples/delay_mintime.out.%Y-%m-%d_%H_%M $LOG_ROTATE_TIME 2>&1 &
 	print_to_log "  Started OpenZFS write delay sampling" $SPARTA_LOG $FF_DATE
     else
 	print_to_log "  OpenZFS write delay monitoring is already running as PID $DELAY_MINTIME_PID" $SPARTA_LOG $FF_DATE
@@ -1125,8 +1142,7 @@ function launch_dnlc
 {
     DNLC_LOOKUP_PID="`pgrep -fl $DNLC_LOOKUPS | awk '{print $1}'`"
     if [ "x$DNLC_LOOKUP_PID" == "x" ]; then
-        print_to_log "DNLC lookups" $LOG_DIR/$SAMPLE_DAY/dnlc_lookups.out $FF_DATE_SEP
-        $DNLC_LOOKUPS >> $LOG_DIR/$SAMPLE_DAY/dnlc_lookups.out 2>&1 &
+        $DNLC_LOOKUPS | $ROTATELOGS $LOG_DIR/samples/dnlc_lookups.out.%Y-%m-%d_%H_%M $LOG_ROTATE_TIME 2>&1 &
         print_to_log "  Started DNLC lookup sampling" $SPARTA_LOG $FF_DATE
     else
         print_to_log "  DNLC lookups already running as PID $DNLC_LOOKUPS_PID" $SPARTA_LOG $FF_DATE
@@ -1138,8 +1154,8 @@ function gather_memstat
     for x in {1..3}
     do
         print_to_log "  memory statistics - sample ${x}" $SPARTA_LOG $FF_DATE
-        print_to_log "::memstat data - sample ${x}" $LOG_DIR/$SAMPLE_DAY/memstat.out $FF_DATE_SEP
-        $ECHO "::memstat" | $MDB -k >> $LOG_DIR/$SAMPLE_DAY/memstat.out
+        print_to_log "::memstat data - sample ${x}" $LOG_DIR/samples/memstat.out $FF_DATE_SEP
+        $ECHO "::memstat" | $MDB -k >> $LOG_DIR/samples/memstat.out
         $ECHO ".\c"
         cursor_pause 5
     done
@@ -1148,7 +1164,7 @@ function gather_memstat
 function gather_uptime
 {
     print_to_log "  uptime statistics" $SPARTA_LOG $FF_DATE
-    $UPTIME > $LOG_DIR/$SAMPLE_DAY/uptime.out
+    $UPTIME > $LOG_DIR/samples/uptime.out
 }
 
 
@@ -1159,7 +1175,7 @@ function launch_iostat
     PGREP_STRING="$IOSTAT $IOSTAT_OPTS"
     $PGREP -fl "$PGREP_STRING" > /dev/null 2>&1
     if [ $? -ne 0 ]; then
-        $IOSTAT $IOSTAT_OPTS >> $LOG_DIR/$SAMPLE_DAY/iostat.out 2>&1 &
+        $IOSTAT $IOSTAT_OPTS | $ROTATELOGS $LOG_DIR/samples/iostat.out.%Y-%m-%d_%H_%M $LOG_ROTATE_TIME 2>&1 &
 	print_to_log "  Started iostat $IOSTAT_OPTS data collection" $SPARTA_LOG $FF_DATE
     else
         IOSTAT_PID="`pgrep -fl "$PGREP_STRING" | awk '{print $1}'`"
@@ -1170,7 +1186,7 @@ function launch_iostat
 function gather_iostat
 {
     print_to_log "  getting disk error count (iostat -E)" $SPARTA_LOG $FF_DATE
-    $IOSTAT $IOSTAT_INFO_OPTS >> $LOG_DIR/$SAMPLE_DAY/iostat-En.out
+    $IOSTAT $IOSTAT_INFO_OPTS >> $LOG_DIR/samples/iostat-En.out
 }
 
 
@@ -1179,7 +1195,7 @@ function gather_iostat
 function gather_fsstat
 {
     print_to_log "Filesystem statistics" $SPARTA_LOG $FF_DATE
-    $FSSTAT_SH $FSSTAT_OPTS >> $LOG_DIR/$SAMPLE_DAY/fsstat.out &
+    $FSSTAT_SH $FSSTAT_OPTS >> $LOG_DIR/samples/fsstat.out &
     let count=0
     while [ $count -lt $FSSTAT_SAMPLE_TIME ]; do
         cursor_update
@@ -1196,8 +1212,7 @@ function launch_nfs_io
 {
     NFS_IO_PID="`pgrep -fl "$NFS_IO" | awk '{print $1}'`"
     if [ "x$NFS_IO_PID" == "x" ]; then
-        print_to_log "$NFS_IO starting" $LOG_DIR/$SAMPLE_DAY/nfs_io.out $FF_DATE_SEP
-	$NFS_IO >> $LOG_DIR/$SAMPLE_DAY/nfs_io.out &
+	$NFS_IO | $ROTATELOGS $LOG_DIR/samples/nfs_io.out.%Y-%m-%d_%H_%M $LOG_ROTATE_TIME &
 	print_to_log "  Started NFS file io monitoring" $SPARTA_LOG $FF_DATE
     else
  	print_to_log "  NFS file io monitoring alreading running as PID $NFS_IO_PID" $SPARTA_LOG $FF_DATE
@@ -1208,8 +1223,7 @@ function launch_nfs_thread_util
 {
     NFS_THREADS_PID="`pgrep -fl "$NFS_THREADS" | awk '{print $1}'`"
     if [ "x$NFS_THREADS_PID" == "x" ]; then
-	print_to_log "$NFS_THREADS starting" $LOG_DIR/$SAMPLE_DAY/nfs_threads.out $FF_DATE_SEP
-	$NFS_THREADS >> $LOG_DIR/$SAMPLE_DAY/nfs_threads.out &
+	$NFS_THREADS | $ROTATELOGS $LOG_DIR/samples/nfs_threads.out.%Y-%m-%d_%H_%M $LOG_ROTATE_TIME &
 	print_to_log "  Started NFS thread monitoring" $SPARTA_LOG $FF_DATE
     else
 	print_to_log "  NFS thread monitoring already running as PID $NFS_THREADS_PID" $SPARTA_LOG $FF_DATE
@@ -1220,8 +1234,7 @@ function launch_nfstop
 {
     NFS_TOP_PID="`pgrep -fl 'dtrace .* nfssvrtop' | awk '{print $1}'`"
     if [ "x$NFS_TOP_PID" == "x" ]; then
-	print_to_log "$NFS_TOP starting" $LOG_DIR/$SAMPLE_DAY/nfssvrtop.out $FF_DATE_SEP
-	$NFS_TOP $NFSSVRTOP_OPTS >> $LOG_DIR/$SAMPLE_DAY/nfssvrtop.out &
+	$NFS_TOP $NFSSVRTOP_OPTS | $ROTATELOGS $LOG_DIR/samples/nfssvrtop.out.%Y-%m-%d_%H_%M $LOG_ROTATE_TIME &
 	print_to_log "  Started NFS top monitoring" $SPARTA_LOG $FF_DATE
     else
 	print_to_log "  NFS top monitoring already running as PID $NFS_TOP_PID" $SPARTA_LOG $FF_DATE
@@ -1232,8 +1245,7 @@ function launch_nfs_rwtime
 {
     NFS_RWTIME_PID="`pgrep -fl "$NFS_RWTIME" | awk '{print $1}'`"
     if [ "x$NFS_RWTIME_PID" == "x" ]; then
-	print_to_log "$NFS_RWTIME starting" $LOG_DIR/$SAMPLE_DAY/nfs_rwtime.out $FF_DATE_SEP
-	$NFS_RWTIME >> $LOG_DIR/$SAMPLE_DAY/nfs_rwtime.out &
+	$NFS_RWTIME | $ROTATELOGS $LOG_DIR/samples/nfs_rwtime.out.%Y-%m-%d_%H_%M $LOG_ROTATE_TIME &
 	print_to_log "  Started NFS monitoring of top files being accessed" $SPARTA_LOG $FF_DATE
     else
 	print_to_log "  NFS top files monitoring already running as PID $NFS_RWTIME_PID" $SPARTA_LOG $FF_DATE
@@ -1244,8 +1256,8 @@ function launch_nfs_rwtime
 function gather_nfs_stat_server
 {
     print_to_log "  nfsstat -s" $SPARTA_LOG $FF_DATE
-    print_to_log "nfsstat -s" $LOG_DIR/$SAMPLE_DAY/nfsstat-s.out $FF_DATE_SEP
-    $NFSSTAT $NFSSTAT_OPTS >> $LOG_DIR/$SAMPLE_DAY/nfsstat-s.out 2>&1 & 2>&1 &
+    print_to_log "nfsstat -s" $LOG_DIR/samples/nfsstat-s.out $FF_DATE_SEP
+    $NFSSTAT $NFSSTAT_OPTS >> $LOG_DIR/samples/nfsstat-s.out 2>&1 & 2>&1 &
     $ECHO ".\c"
     cursor_pause 5
 }
@@ -1253,7 +1265,7 @@ function gather_nfs_stat_server
 function gather_nfs_share_output
 {
     print_to_log "  Collecting NFS share information" $SPARTA_LOG $FF_DATE
-    $SHARECTL get nfs > $LOG_DIR/$SAMPLE_DAY/sharectl_get_nfs.out
+    $SHARECTL get nfs > $LOG_DIR/samples/sharectl_get_nfs.out
 }
 
 
@@ -1263,8 +1275,7 @@ function launch_iscsitop
 {
     ISCSI_TOP_PID="`pgrep -fl 'dtrace .* iscsisvrtop' | awk '{print $1}'`"
     if [ "x$ISCSI_TOP_PID" == "x" ]; then
-        print_to_log "$ISCSI_TOP starting" $LOG_DIR/$SAMPLE_DAY/iscsisvrtop.out $FF_DATE_SEP
-	$ISCSI_TOP $ISCSISVRTOP_OPTS >> $LOG_DIR/$SAMPLE_DAY/iscsisvrtop.out &
+	$ISCSI_TOP $ISCSISVRTOP_OPTS | $ROTATELOGS $LOG_DIR/samples/iscsisvrtop.out.%Y-%m-%d_%H_%M $LOG_ROTATE_TIME &
 	print_to_log "Started ISCSI top monitoring" $SPARTA_LOG $FF_DATE
     else    
 	print_to_log "  iSCSI top monitoring already running as PID $ISCSI_TOP_PID" $SPARTA_LOG $FF_DATE
@@ -1279,8 +1290,7 @@ function launch_sbd_zvol_unmap
     PGREP_STRING="dtrace .*$SBD_ZVOL_UNMAP"
     SBD_ZVOL_UNMAP_PID="`pgrep -fl "$PGREP_STRING" | awk '{print $1}'`"
     if [ "x$SBD_ZVOL_UNMAP_PID" == "x" ]; then
-        print_to_log "$SBD_ZVOL_UNMAP starting" $LOG_DIR/$SAMPLE_DAY/sbd_zvol_unmap.out $FF_DATE_SEP
-	$SBD_ZVOL_UNMAP >> $LOG_DIR/$SAMPLE_DAY/sbd_zvol_unmap.out &
+	$SBD_ZVOL_UNMAP | $ROTATELOGS $LOG_DIR/samples/sbd_zvol_unmap.out.%Y-%m-%d_%H_%M $LOG_ROTATE_TIME &
 	print_to_log "  Started sbd_zvol_unmap monitoring" $SPARTA_LOG $FF_DATE
     else    
 	print_to_log "  sbd_zvol_unmap monitoring already running as PID $SBD_ZVOL_UNMAP_PID" $SPARTA_LOG $FF_DATE
@@ -1292,8 +1302,7 @@ function launch_stmf_task_time
     PGREP_STRING="dtrace .*$STMF_TASK_TIME"
     STMF_TASK_TIME_PID="`pgrep -fl "$PGREP_STRING" | awk '{print $1}'`"
     if [ "x$STMF_TASK_TIME_PID" == "x" ]; then
-        print_to_log "$STMF_TASK_TIME starting" $LOG_DIR/$SAMPLE_DAY/stmf_task_time.out $FF_DATE_SEP
-	$STMF_TASK_TIME >> $LOG_DIR/$SAMPLE_DAY/stmf_task_time.out &
+	$STMF_TASK_TIME | $ROTATELOGS $LOG_DIR/samples/stmf_task_time.out.%Y-%m-%d_%H_%M $LOG_ROTATE_TIME &
 	print_to_log "  Started stmf_task_time monitoring" $SPARTA_LOG $FF_DATE
     else    
 	print_to_log "  stmf_task_time monitoring already running as PID $STMF_TASK_TIME_PID" $SPARTA_LOG $FF_DATE
@@ -1305,8 +1314,8 @@ function gather_stmf_workers
     for x in {1..10}
     do
         print_to_log "  stmf current worker backlog statistics - sample ${x}" $SPARTA_LOG $FF_DATE
-        print_to_log "stmf current worker backlog info - sample ${x}" $LOG_DIR/$SAMPLE_DAY/stmf_worker_backlog.out $FF_DATE_SEP
-        $ECHO "stmf_cur_ntasks::print -d" | $MDB -k >> $LOG_DIR/$SAMPLE_DAY/stmf_worker_backlog.out
+        print_to_log "stmf current worker backlog info - sample ${x}" $LOG_DIR/samples/stmf_worker_backlog.out $FF_DATE_SEP
+        $ECHO "stmf_cur_ntasks::print -d" | $MDB -k >> $LOG_DIR/samples/stmf_worker_backlog.out
         $ECHO ".\c"
         cursor_pause 5
     done
@@ -1319,8 +1328,7 @@ function launch_cifs_top
 {
     CIFS_TOP_PID="`pgrep -fl 'dtrace .* cifssvrtop' | awk '{print $1}'`"
     if [ "x$CIFS_TOP_PID" == "x" ]; then
-        print_to_log "$CIFS_TOP starting" $LOG_DIR/$SAMPLE_DAY/cifssvrtop.out $FF_DATE_SEP
-	$CIFS_TOP $CIFSSVRTOP_OPTS >> $LOG_DIR/$SAMPLE_DAY/cifssvrtop.out &
+	$CIFS_TOP $CIFSSVRTOP_OPTS | $ROTATELOGS $LOG_DIR/samples/cifssvrtop.out.%Y-%m-%d_%H_%M $LOG_ROTATE_TIME &
 	print_to_log "Started CIFS top monitoring" $SPARTA_LOG $FF_DATE
     else    
 	print_to_log "  CIFS top monitoring already running as PID $CIFS_TOP_PID" $SPARTA_LOG $FF_DATE
@@ -1330,14 +1338,14 @@ function launch_cifs_top
 function gather_cifs_share_output
 {
     print_to_log "Collecting CIFS share information" $SPARTA_LOG $FF_DATE
-    $SHARECTL get smb > $LOG_DIR/$SAMPLE_DAY/sharectl_get_smb.out
+    $SHARECTL get smb > $LOG_DIR/samples/sharectl_get_smb.out
 }
 
 function launch_cifs_util
 {
     $PGREP -fl "$SMBSTAT $SMB_UTIL_OPTS" > /dev/null 2>&1
     if [ $? -ne 0 ]; then
-	$SMBSTAT $SMB_UTIL_OPTS >> $LOG_DIR/$SAMPLE_DAY/{$1} 2>&1 &
+	$SMBSTAT $SMB_UTIL_OPTS $ROTATELOGS $LOG_DIR/samples/{$1}.%Y-%m-%d_%H_%M $LOG_ROTATE_TIME 2>&1 &
     fi
 }
 
@@ -1345,7 +1353,7 @@ function launch_cifs_ops
 {
     $PGREP -fl "$SMBSTAT $SMB_OPS_OPTS" > /dev/null 2>&1
     if [ $? -ne 0 ]; then
-	$SMBSTAT $SMB_OPS_OPTS >> $LOG_DIR/$SAMPLE_DAY/{$1} 2>&1 &
+	$SMBSTAT $SMB_OPS_OPTS | $ROTATELOGS $LOG_DIR/samples/{$1}.%Y-%m-%d_%H_%M $LOG_ROTATE_TIME 2>&1 &
     fi
 }
 
@@ -1407,13 +1415,14 @@ $ECHO ""
 
 
 #
-# Performance samples are collated by day (where possible) so figure out the day
+# Performance samples used to be collated by day, however by switching over to including the datestamp
+# as part of the filename so we can deal with rotating logs, having a directory based on the date
+# was considered redundant.
 #
-SAMPLE_DAY="`$DATE +%Y-%m-%d`"
-if [ ! -d $LOG_DIR/$SAMPLE_DAY ]; then
-    $MKDIR -p $LOG_DIR/$SAMPLE_DAY
+if [ ! -d $LOG_DIR/samples ]; then
+    $MKDIR -p $LOG_DIR/samples
     if [ $? -ne 0 ]; then
-	$ECHO "Unable to create $LOG_DIR/$SAMPLE_DAY directory to capture statistics"
+	$ECHO "Unable to create $LOG_DIR/samples directory to capture statistics"
 	exit 1
     fi
 fi

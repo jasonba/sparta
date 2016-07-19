@@ -1,7 +1,8 @@
 #!/bin/bash
 
 printf "Building ... \n"
-SPARTA_TARBALL=/var/tmp/sparta.tar
+VER=`grep '^SPARTA_VER' payload/sparta.config | awk '{print $1}' | awk -F\" '{print $2}'`
+SPARTA_TARBALL=/var/tmp/sparta-${VER}.tar
 tar cvf $SPARTA_TARBALL README installer.sh auto-installer.sh payload
 gzip -f $SPARTA_TARBALL
 cp ${SPARTA_TARBALL}.gz /volumes/alices/scripts
