@@ -3,8 +3,8 @@
 #
 # Program	: auto-installer.sh
 # Author	: Jason Banham
-# Date		: 2013-11-04 : 2015-08-13
-# Version	: 0.09
+# Date		: 2013-11-04 : 2015-08-13 : 2016-07-20
+# Version	: 0.11
 # Usage		: auto-installer.sh <tarball>
 # Purpose	: Companion script to SPARTA for auto-installing a new sparta.tar.gz file
 # History	: 0.01 - Initial version, based on the installer.sh script
@@ -16,15 +16,17 @@
 #		  0.07 - Added 5 scripts to help observer NexentaStor 4 transaction engine/throttling/vdev queue
 #	      	  0.08 - Added cifs_taskq_watch.sh, cifs_threads.sh, nfsio_onehost.d scripts
 #		  0.09 - Added kmem_reap_100ms_ns.d for the 4.0.4 no strategy change for Illumos #5379
+#                 0.10 - Modified installer to work on NS5.x Beta
+#		  0.11 - Added in the arc_adjust_ns5.d script to work on NexentaStor 5
 #
 
 #
 # Where we're going to store our performance logging data
 #
 LOG_DIR=/perflogs
-LOG_DATASET=syspool/perflogs
 LOG_CONFIG=${LOG_DIR}/etc
 LOG_SCRIPTS=${LOG_DIR}/scripts
+LOG_BIN=${LOG_DIR}/bin
 LOG_TEMPLATES=${LOG_DIR}/workload_templates
 
 #
@@ -47,11 +49,21 @@ TEMP_DIR=/tmp/sparta.auto
 TR=/usr/bin/tr
 ZFS=/usr/sbin/zfs
 ZPOOL=/usr/sbin/zpool
-if [ "`uname -v`" == "NexentaOS_134f" ]; then
-    ECHO=/usr/sun/bin/echo
-else
-    ECHO=/usr/bin/echo
-fi
+
+case $OS_MAJOR in
+    NexentaOS_134f )
+                        ECHO=/usr/sun/bin/echo
+                        LOG_DATASET=syspool/perflogs
+                        ;;
+    NexentaOS_4    )
+                        ECHO=/usr/bin/echo
+                        LOG_DATASET=syspool/perflogs
+                        ;;
+    NexentaStor_5    )
+                        ECHO=/usr/bin/echo
+                        LOG_DATASET=rpool/perflogs
+                        ;;
+esac
 
 #
 # Configuration file
@@ -62,7 +74,8 @@ SPARTA_TEMPLATE=$LOG_CONFIG/sparta.config.template
 #
 # Scripts and files to install
 #
-SCRIPTS="arcstat.pl arc_adjust.v2.d arc_adjust_ns4.v2.d arc_evict.d cifssvrtop cifssvrtop.v4 delay_mintime.d delayed_writes.d dirty.d dnlc_lookups.d duration.d flame_stacks.sh fsstat.sh iscsisvrtop kmem_reap_100ms.d kmem_reap_100ms_ns.d large_delete.d txg_monitor.v3.d hotkernel.priv lockstat_sparta.sh metaslab.sh nfsio.d nfssrvutil.d nfssvrtop nfsrwtime.d rwlatency.d sbd_zvol_unmap.d sparta.sh sparta_shield.sh stmf_task_time.d tcp_input.d zil_commit_time.d zil_stat.d openzfs_txg.d arc_meta.sh cifs_taskq_watch.sh cifs_threads.sh nfsio_onehost.d"
+SCRIPTS="arcstat.pl arc_adjust.v2.d arc_adjust_ns4.v2.d arc_evict.d cifssvrtop cifssvrtop.v4 delay_mintime.d delayed_writes.d dirty.d dnlc_lookups.d duration.d flame_stacks.sh fsstat.sh iscsisvrtop kmem_reap_100ms.d kmem_reap_100ms_ns.d large_delete.d txg_monitor.v3.d hotkernel.priv lockstat_sparta.sh metaslab.sh nfsio.d nfssrvutil.d nfssvrtop nfsrwtime.d rwlatency.d sbd_zvol_unmap.d sparta.sh sparta_shield.sh stmf_task_time.d tcp_input.d zil_commit_time.d zil_stat.d openzfs_txg.d arc_meta.sh cifs_taskq_watch.sh cifs_threads.sh nfsio_onehost.d arc_adjust_ns5.d stmf_sbd_unmap.d nicstat"
+BINARIES="rotatelogs nsver-check.pl"
 CONFIG_FILES="sparta.config"
 README="README"
 TEMPLATE_FILES="README_WORKLOADS light"
@@ -144,6 +157,9 @@ $ECHO "Updating SPARTA ... \c"
 if [ ! -d $LOG_SCRIPTS ]; then
     mkdir $LOG_SCRIPTS
 fi
+if [ ! -d $LOG_BIN ]; then
+    mkdir $LOG_BIN
+fi
 if [ ! -d $LOG_CONFIG ]; then
     mkdir $LOG_CONFIG
 fi
@@ -158,6 +174,14 @@ do
     $COPY payload/$script $LOG_SCRIPTS/
     if [ $? -ne 0 ]; then
 	$ECHO "Failed to install $script"
+    fi
+done
+
+for binary in $BINARIES
+do
+    $COPY payload/$binary $LOG_BIN/
+    if [ $? -ne 0 ]; then
+        $ECHO "Failed to install $binary"
     fi
 done
 
@@ -187,6 +211,31 @@ do
 done
 
 $COPY $HASH_FILE $LOG_CONFIG/sparta.hash
+
+#
+# Post processing of the sparta.config to enable/disable features based on patch levels
+#
+# ----------------------------------------------------------------------------
+# Bug #NEX-3273
+# Synopsis:smbstat delays its output when redirected to a file
+# Fix version: 4.0.3-FP4
+# ----------------------------------------------------------------------------
+#
+$ECHO "Checking for patch levels and modifying sparta.config (where appropriate) ..."
+case $OS_MAJOR in
+    NexentaOS_4 )
+        if [ "`$LOG_BIN/nsver-check.pl /etc/issue 4.0.3-FP4`" == "fixed" ]; then
+            $COPY $SPARTA_CONFIG ${SPARTA_CONFIG}.prepatch
+            $SED -e 's/ENABLE_CIFS_UTIL=0/ENABLE_CIFS_UTIL=1/g' -e 's/ENABLE_CIFS_OPS=0/ENABLE_CIFS_OPS=1/' ${SPARTA_CONFIG}.prepatch > ${SPARTA_CONFIG}
+            $ECHO "  Enabled smbstat data gathering as appliance meets patch levels"
+        fi
+        ;;
+    NexentaStor_5 )
+        $COPY $SPARTA_CONFIG ${SPARTA_CONFIG}.prepatch
+        $SED -e 's/ENABLE_CIFS_UTIL=0/ENABLE_CIFS_UTIL=1/g' -e 's/ENABLE_CIFS_OPS=0/ENABLE_CIFS_OPS=1/' ${SPARTA_CONFIG}.prepatch > ${SPARTA_CONFIG}
+        $ECHO "  Enabled smbstat data gathering as appliance meets patch levels"
+        ;;
+esac
 
 $ECHO "done"
 $ECHO "Restarting SPARTA with the new version"

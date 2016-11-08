@@ -177,6 +177,7 @@ sdt:smbsrv::-smb_op-*-start
     self->ipaddr = inet_ntoa((ipaddr_t *)&self->sr->session->ipaddr);
     self->wsname = stringof(self->sr->session->workstation);
     self->me = OPT_wsname == 0 ? self->ipaddr : self->wsname;
+    print(self->sr->session->ipaddr);
 }
 
 sdt:smbsrv::-smb_op-*-start

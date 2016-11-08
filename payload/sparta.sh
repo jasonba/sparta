@@ -3,8 +3,8 @@
 #
 # Program	: sparta.sh
 # Author	: Jason.Banham@Nexenta.COM
-# Date		: 2013-02-04 - 2016-07-19
-# Version	: 0.60
+# Date		: 2013-02-04 - 2016-11-06
+# Version	: 0.66
 # Usage		: sparta.sh [ -h | -help | start | status | stop | tarball ]
 # Purpose	: Gather performance statistics for a NexentaStor appliance
 # Legal		: Copyright 2013, 2014, 2015 and 2016 Nexenta Systems, Inc. 
@@ -83,6 +83,12 @@
 #		  0.58 - Adjusted config to pick the no strategy script for NS4.0.4 after Illumos #5376 fix
 #		  0.59 - Added in log rotation functionality that had been requested
 #		  0.60 - Added in kmastat and kmem_slabs data collection at start time
+#		  0.61 - Modified to work on NexentaStor 5
+#		  0.62 - Improved the shutdown code to stop a clash with the watchdog monitor
+#		  0.63 - Wrote some code to re-enable the sbd_zvol_unmap.d / stmf_sbd_unmap.d dtrace scripts
+#		  0.64 - Added in some package information collection
+#		  0.65 - Added in more network captures, kstat, ping and nicstat
+#		  0.66 - Added a check for a missing library on NexentaStor 5 GA for the rotatelogs binary
 #
 #
 
@@ -201,6 +207,9 @@ function script_status
     pgrep -fl "$SPARTA_SHIELD"
     pgrep -fl "$ZPOOL iostat $ZPOOL_IOSTAT_OPTS"
     pgrep -fl "$ARC_META"
+    pgrep -fl "$SMBSTAT"
+    pgrep -fl "$NICSTAT"
+    pgrep -fl "$NFSSTAT $NFSSTAT_OPTS"
 }
 
 
@@ -209,6 +218,14 @@ function script_status
 #
 function script_kill
 {
+    STOP_PID=$$
+    if [ ! -r $STOPPING_FILE ]; then
+        $ECHO $STOP_PID > $STOPPING_FILE
+    else
+        $ECHO "We appear to be stopping already, under PID = `cat $STOPPING_FILE`"
+        ps -fp `cat $STOPPING_FILE`
+        exit 0
+    fi
     pkill -f 'dtrace .* [/perflogs|nfssvrtop|cifssvrtop|iscsisvrtop]'
     pkill -f $ARCSTAT_PL
     pkill -f $LOCKSTAT_SPARTA
@@ -219,6 +236,23 @@ function script_kill
     pkill -f "$SPARTA_SHIELD"
     pkill -f "$ZPOOL iostat $ZPOOL_IOSTAT_OPTS"
     pkill -f "$ARC_META"
+    pkill -f "$SMBSTAT"
+    pkill -f "$NICSTAT"
+    pkill -f "$NFSSTAT $NFSSTAT_OPTS"
+    if [ -r $STOPPING_FILE ]; then
+        RECORDED_STOP_PID="`cat $STOPPING_FILE`"
+        if [ $STOP_PID == $RECORDED_STOP_PID ]; then
+            rm $STOPPING_FILE
+        else
+            $ECHO "Woah, something went wrong and changed the stopping PID whilst we were trying to stop."
+            $ECHO "Must exit"
+            exit 1
+        fi
+    else
+        $ECHO "Error!  Someone deleted the stop lock file whilst we were trying to delete it"
+        $ECHO "Must exit"
+        exit 1
+    fi
 }
  
 
@@ -597,9 +631,6 @@ do
 		TRACE_STMF="y"
 		;;
 
-#        c)      subcommand=$OPTARG
-#                ;;
-
         p)      ZPOOL_NAME=$OPTARG
                 ;;
 	u)	UPDATE_OPT=$OPTARG
@@ -910,6 +941,50 @@ function gather_dladm
     $DLADM show-phys > $LOG_DIR/samples/dladm-show-phys.out
     $DLADM show-link > $LOG_DIR/samples/dladm-show-link.out
     $DLADM show-linkprop > $LOG_DIR/samples/dladm-show-linkprop.out
+}
+
+function gather_ping
+{
+    if [ -r /etc/defaultrouter ]; then
+        DEF_ROUTE="`cat /etc/defaultrouter`"
+	$PING -s $DEF_ROUTE $PING_SIZE $PING_COUNT > $LOG_DIR/samples/ping.out
+    else
+	$ECHO "Could not find default route" > $LOG_DIR/samples/ping.out
+    fi
+} 
+
+function launch_nicstat
+{
+    if [ "$ENABLE_NICSTAT_IFACE" == "1" ]; then
+        PGREP_STRING="$NICSTAT -n -M"
+        NICSTAT__PID="`pgrep -fl "$PGREP_STRING" | awk '{print $1}'`"
+        if [ "x$NICSTAT_PID" == "x" ]; then
+	    $NICSTAT -n -M $NICSTAT_OPTS | $ROTATELOGS $LOG_DIR/samples/nicstat.ifaces.out.%Y-%m-%d_%H_%M $LOG_ROTATE_TIME 2>&1 &
+	    print_to_log "  Started interface monitoring" $SPARTA_LOG $FF_DATE
+        else
+            print_to_log "  nicstat interface monitoring was already running as PID $NICSTAT_PID" $SPARTA_LOG $FF_DATE
+        fi
+    fi
+    if [ "$ENABLE_NICSTAT_TCP" == "1" ]; then
+        PGREP_STRING="$NICSTAT -n -t"
+        NICSTAT__PID="`pgrep -fl "$PGREP_STRING" | awk '{print $1}'`"
+        if [ "x$NICSTAT_PID" == "x" ]; then
+	    $NICSTAT -n -t $NICSTAT_OPTS | $ROTATELOGS $LOG_DIR/samples/nicstat.tcp.out.%Y-%m-%d_%H_%M $LOG_ROTATE_TIME 2>&1 &
+	    print_to_log "  Started TCP monitoring" $SPARTA_LOG $FF_DATE
+        else
+            print_to_log "  nicstat TCP monitoring was already running as PID $NICSTAT_PID" $SPARTA_LOG $FF_DATE
+	fi
+    fi
+    if [ "$ENABLE_NICSTAT_UDP" == "1" ]; then
+        PGREP_STRING="$NICSTAT -n -u"
+        NICSTAT__PID="`pgrep -fl "$PGREP_STRING" | awk '{print $1}'`"
+        if [ "x$NICSTAT_PID" == "x" ]; then
+	    $NICSTAT -n -u $NICSTAT_OPTS | $ROTATELOGS $LOG_DIR/samples/nicstat.udp.out.%Y-%m-%d_%H_%M $LOG_ROTATE_TIME 2>&1 &
+	    print_to_log "  Started UDP monitoring" $SPARTA_LOG $FF_DATE
+	else
+	    print_to_log "  nicstat UDP monitoring was already running as PID $NICSTAT_PID" $SPARTA_LOG $FF_DATE
+	fi
+    fi
 }
 
 
@@ -1345,7 +1420,7 @@ function launch_cifs_util
 {
     $PGREP -fl "$SMBSTAT $SMB_UTIL_OPTS" > /dev/null 2>&1
     if [ $? -ne 0 ]; then
-	$SMBSTAT $SMB_UTIL_OPTS $ROTATELOGS $LOG_DIR/samples/{$1}.%Y-%m-%d_%H_%M $LOG_ROTATE_TIME 2>&1 &
+	$SMBSTAT $SMB_UTIL_OPTS | $ROTATELOGS $LOG_DIR/samples/${1}.%Y-%m-%d_%H_%M $LOG_ROTATE_TIME 2>&1 &
     fi
 }
 
@@ -1353,8 +1428,22 @@ function launch_cifs_ops
 {
     $PGREP -fl "$SMBSTAT $SMB_OPS_OPTS" > /dev/null 2>&1
     if [ $? -ne 0 ]; then
-	$SMBSTAT $SMB_OPS_OPTS | $ROTATELOGS $LOG_DIR/samples/{$1}.%Y-%m-%d_%H_%M $LOG_ROTATE_TIME 2>&1 &
+	$SMBSTAT $SMB_OPS_OPTS | $ROTATELOGS $LOG_DIR/samples/${1}.%Y-%m-%d_%H_%M $LOG_ROTATE_TIME 2>&1 &
     fi
+}
+
+
+### Package management functions
+
+function gather_pkg_info
+{
+    case $NEXENTASTOR_MAJ_VER in
+	4 ) dpkg -l > $LOG_DIR/dpkg-l.out 2>&1
+	    ;;
+	5 ) pkg info > $LOG_DIR/pkg-info.out 2>&1
+	    pkg history -l > $LOG_DIR/pkg-history-l.out 2>&1
+	    ;;
+    esac
 }
 
 
@@ -1362,6 +1451,40 @@ function launch_cifs_ops
 
 $ECHO "Nexenta Performance gathering script ($SPARTA_VER)"
 $ECHO "====================================\n"
+
+#
+# NexentaStor 5 GA (5.0.1) ships without the required libraries to run the rotatelogs script
+# It's fairly trivial to install but we need to check, otherwise you get lots of errors
+#
+
+if [ $NEXENTASTOR_MAJ_VER == "5" ]; then
+    pkg info -q pkg:/library/apr-util
+    if [ $? -ne 0 ]; then
+        $ECHO "Package pkg:/library/apr-util is missing, which will prevent log files from rotating."
+        $ECHO "Failure to install this package means that SPARTA will not run.\n"
+        $ECHO "Would you like me to install the missing package? (y|n) \c"
+        read INSTALL_ME
+        INSTALL_ME="`$ECHO $INSTALL_ME | $TR '[:upper:]' '[:lower:]'`"
+        if [ "$INSTALL_ME" == "y" ]; then
+            pkg install -q pkg:/library/apr-util
+            ERR_CODE=$?
+            if [ $ERR_CODE -ne 0 ]; then
+                $ECHO "Unable to install that package, so I must exit."
+                $ECHO "Please seek assistance from a Nexenta support engineer, advising them that SPARTA"
+                $ECHO "was unable to install pkg:/library/apr-util with error code $ERR_CODE"
+                exit 1
+            else
+                $ECHO "Successfully installed."
+            fi
+        else
+            $ECHO "Must exit as SPARTA will not run without this package."
+            exit 1
+        fi
+    else
+        $ECHO "already installed."
+    fi
+fi
+
 
 #
 # Check to see whether there is an updated version of SPARTA online
@@ -1442,19 +1565,32 @@ print_to_log "#############################" $SPARTA_LOG $FF_NEWL
 print_to_log "Collecting configuration files first" $SPARTA_LOG $FF_DATE
 for config_file in ${CONFIG_FILE_LIST}
 do
-    $CP $config_file $LOG_DIR/
+    if [ -r $config_file ]; then
+        $CP $config_file $LOG_DIR/
+    else
+	print_to_log "  missing file - $config_file" $SPARTA_LOG
+    fi
 done
 
 FILE_LIMIT="`expr $MEGABYTE \* 50`"
 for other_file in ${OTHER_FILE_LIST}
 do
-    FILESIZE="`$STAT -c%s $other_file`"
-    if [ $FILESIZE -lt $FILE_LIMIT ]; then
-	$CP $other_file $LOG_DIR/
+    if [ -r $other_file ]; then
+        FILESIZE="`$STAT -c%s $other_file`"
+        if [ $FILESIZE -lt $FILE_LIMIT ]; then
+	    $CP $other_file $LOG_DIR/
+        else
+            $ECHO "File exceeded $FILE_LIMIT - did not collect" > $LOG_DIR/`basename $other_file`
+	fi
     else
-        $ECHO "File exceeded $FILE_LIMIT - did not collect" > $LOG_DIR/`basename $other_file`
+	print_to_log "  missing file - $other_file" $SPARTA_LOG
     fi
 done
+
+# Get information on installed packages
+
+gather_pkg_info
+
 $ECHO "done"
 
 

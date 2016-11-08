@@ -3,8 +3,8 @@
 #
 # Program       : sparta_shield.sh
 # Author        : Jason.Banham@Nexenta.COM
-# Date          : 2013-10-25 - 2014-01-07
-# Version       : 0.04
+# Date          : 2013-10-25 - 2016-07-22
+# Version       : 0.05
 # Usage         : sparta_shield.sh
 # Purpose       : A Watchdog script to monitor the SPARTA performance logging 
 #		  filesystem and stop sparta.sh if that becomes too full
@@ -15,6 +15,7 @@
 #		         need to record this in the sparta.log file
 #		  0.03 - Modified how we call the stop method to SPARTA
 #		  0.04 - Added a trap handler to shutdown SPARTA and exit the shield
+#		  0.05 - Improved logic for shutdown code
 #
 
 #
@@ -47,8 +48,12 @@ function shutdown_sparta
 {
     PREFIX="${PREFIX}`date +%Y-%m-%d_%H:%M:%S` "
     $ECHO "${PREFIX}sigterm received - stopping sparta" >> $SPARTA_LOG
-    $LOG_SCRIPTS/sparta.sh stop >> $SPARTA_LOG 2>&1
-    logger -p daemon.notice "SPARTA shutdown requested."
+    if [ ! -r $STOPPING_FILE ]; then
+        $LOG_SCRIPTS/sparta.sh stop >> $SPARTA_LOG 2>&1
+        logger -p daemon.notice "SPARTA shutdown requested with return code = $$"
+    else
+        logger -p daemon.notice "SPARTA shutdown already in progress as PID = `cat $STOPPING_FILE`"
+    fi
     exit 0
 }
 

@@ -3,8 +3,8 @@
 #
 # Program	: installer.sh
 # Author	: Jason Banham
-# Date		: 2013-01-04 | 2015-08-13
-# Version	: 0.19
+# Date		: 2013-01-04 | 2015-08-13 | 2016-07-20 | 2016-11-08
+# Version	: 0.22
 # Usage		: installer.sh [<zpool name>]
 # Purpose	: Gather performance statistics for a NexentaStor appliance
 # History	: 0.01 - Initial version
@@ -29,6 +29,9 @@
 #		  0.17 - Added 5 scripts to help observer NexentaStor 4 transaction engine/throttling/vdev queue
 #		  0.18 - Added cifs_taskq_watch.sh, cifs_threads.sh, nfsio_onehost.d scripts
 #		  0.19 - Added kmem_reap_100ms_ns.d for the 4.0.4 no strategy change for Illumos #5379
+#		  0.20 - Modified installer to work on NS5.x Beta
+#		  0.21 - Added in the arc_adjust_ns5.d script to work on NexentaStor 5
+#		  0.22 - Added check for library required by rotatelog binary on NexentaStor 5
 
 #
 
@@ -36,8 +39,8 @@
 # Where we're going to store our performance logging data
 #
 LOG_DIR=/perflogs
-LOG_DATASET=syspool/perflogs
 LOG_CONFIG=${LOG_DIR}/etc
+LOG_BIN=${LOG_DIR}/bin
 LOG_SCRIPTS=${LOG_DIR}/scripts
 LOG_TEMPLATES=${LOG_DIR}/workload_templates
 
@@ -57,11 +60,23 @@ SED=/usr/bin/sed
 TR=/usr/bin/tr
 ZFS=/usr/sbin/zfs
 ZPOOL=/usr/sbin/zpool
-if [ "`uname -v`" == "NexentaOS_134f" ]; then
-    ECHO=/usr/sun/bin/echo
-else
-    ECHO=/usr/bin/echo
-fi
+
+OS_MAJOR="`uname -v | cut -d':' -f1 | sed -e 's/\..*//g'`"
+
+case $OS_MAJOR in
+    NexentaOS_134f )
+                        ECHO=/usr/sun/bin/echo
+                        LOG_DATASET=syspool/perflogs
+                        ;;
+    NexentaOS_4    )
+                        ECHO=/usr/bin/echo
+                        LOG_DATASET=syspool/perflogs
+                        ;;
+    NexentaStor_5    )
+                        ECHO=/usr/bin/echo
+                        LOG_DATASET=rpool/perflogs
+                        ;;
+esac
 
 #
 # Configuration file
@@ -72,7 +87,8 @@ SPARTA_TEMPLATE=$LOG_CONFIG/sparta.config.template
 #
 # Scripts and files to install
 #
-SCRIPTS="arcstat.pl arc_adjust.v2.d arc_adjust_ns4.v2.d arc_evict.d cifssvrtop cifssvrtop.v4 delay_mintime.d delayed_writes.d dirty.d dnlc_lookups.d duration.d flame_stacks.sh fsstat.sh iscsisvrtop kmem_reap_100ms.d kmem_reap_100ms_ns.d large_delete.d txg_monitor.v3.d hotkernel.priv lockstat_sparta.sh metaslab.sh nfsio.d nfssrvutil.d nfssvrtop nfsrwtime.d rwlatency.d sbd_zvol_unmap.d sparta.sh sparta_shield.sh stmf_task_time.d tcp_input.d zil_commit_time.d zil_stat.d openzfs_txg.d arc_meta.sh cifs_taskq_watch.sh cifs_threads.sh nfsio_onehost.d"
+SCRIPTS="arcstat.pl arc_adjust.v2.d arc_adjust_ns4.v2.d arc_adjust_ns5.d arc_evict.d cifssvrtop cifssvrtop.v4 delay_mintime.d delayed_writes.d dirty.d dnlc_lookups.d duration.d flame_stacks.sh fsstat.sh iscsisvrtop kmem_reap_100ms.d kmem_reap_100ms_ns.d large_delete.d txg_monitor.v3.d hotkernel.priv lockstat_sparta.sh metaslab.sh nfsio.d nfssrvutil.d nfssvrtop nfsrwtime.d rwlatency.d sbd_zvol_unmap.d sparta.sh sparta_shield.sh stmf_task_time.d tcp_input.d zil_commit_time.d zil_stat.d openzfs_txg.d arc_meta.sh cifs_taskq_watch.sh cifs_threads.sh nfsio_onehost.d arc_adjust_ns5.d stmf_sbd_unmap.d nicstat"
+BINARIES="rotatelogs nsver-check.pl"
 CONFIG_FILES="sparta.config"
 TEMPLATE_FILES="README_WORKLOADS light"
 README="README"
@@ -200,6 +216,9 @@ fi
 if [ ! -d $LOG_TEMPLATES ]; then
     mkdir $LOG_TEMPLATES
 fi
+if [ ! -d $LOG_BIN ]; then
+    mkdir $LOG_BIN
+fi
 
  
 #
@@ -241,6 +260,14 @@ do
     fi
 done
 
+for binary in $BINARIES
+do
+    $COPY payload/$binary $LOG_BIN/
+    if [ $? -ne 0 ]; then
+	$ECHO "Failed to install $binary"
+    fi
+done
+
 for config in $CONFIG_FILES
 do
     $COPY payload/$config $LOG_CONFIG/
@@ -269,6 +296,65 @@ $ECHO "ZPOOL_NAME=$ZPOOL_NAME" > $LOG_CONFIG/.zpool_to_monitor
 #
 $ECHO "TRACE_NFS=${TRACE_NFS}\nTRACE_CIFS=${TRACE_CIFS}\nTRACE_ISCSI=${TRACE_ISCSI}\nTRACE_STMF=${TRACE_STMF}" > $LOG_CONFIG/.services_to_monitor
 
+#
+# Post processing of the sparta.config to enable/disable features based on patch levels
+#
+# ----------------------------------------------------------------------------
+# Bug #NEX-3273
+# Synopsis:smbstat delays its output when redirected to a file
+# Fix version: 4.0.3-FP4
+# ----------------------------------------------------------------------------
+#
+$ECHO "Checking for patch levels and modifying sparta.config (where appropriate) ..."
+case $OS_MAJOR in
+    NexentaOS_4 ) 
+    	if [ "`$LOG_BIN/nsver-check.pl /etc/issue 4.0.3-FP4`" == "fixed" ]; then
+	    $COPY $SPARTA_CONFIG ${SPARTA_CONFIG}.prepatch
+            $SED -e 's/ENABLE_CIFS_UTIL=0/ENABLE_CIFS_UTIL=1/g' -e 's/ENABLE_CIFS_OPS=0/ENABLE_CIFS_OPS=1/' ${SPARTA_CONFIG}.prepatch > ${SPARTA_CONFIG}
+	    $ECHO "  Enabled smbstat data gathering as appliance meets patch levels"
+        fi
+	;;
+    NexentaStor_5 )
+        $COPY $SPARTA_CONFIG ${SPARTA_CONFIG}.prepatch
+        $SED -e 's/ENABLE_CIFS_UTIL=0/ENABLE_CIFS_UTIL=1/g' -e 's/ENABLE_CIFS_OPS=0/ENABLE_CIFS_OPS=1/' ${SPARTA_CONFIG}.prepatch > ${SPARTA_CONFIG}
+	$ECHO "  Enabled smbstat data gathering as appliance meets patch levels"
+	;;
+esac
+
+#
+# NexentaStor 5 GA (5.0.1) ships without the required libraries to run the rotatelogs script
+# It's fairly trivial to install but we need to check, otherwise you get lots of errors
+#
+
+if [ "$OS_MAJOR" == "NexentaStor_5" ]; then
+    $ECHO "\nChecking for pkg:/library/apr-util ... \c"
+    pkg info -q pkg:/library/apr-util
+    if [ $? -ne 0 ]; then
+	$ECHO "NOT INSTALLED!"
+	$ECHO "\nWARNING: Package pkg:/library/apr-util is missing, which will prevent log files from rotating."
+	$ECHO "Failure to install this package means that SPARTA will not run.\n"
+ 	$ECHO "Would you like me to install the missing package? (y|n) \c"
+	read INSTALL_ME 
+	INSTALL_ME="`$ECHO $INSTALL_ME | $TR '[:upper:]' '[:lower:]'`"
+	if [ "$INSTALL_ME" == "y" ]; then
+	    pkg install -q pkg:/library/apr-util
+	    ERR_CODE=$?
+	    if [ $ERR_CODE -ne 0 ]; then
+		$ECHO "Unable to install that package, so I must exit."
+		$ECHO "Please seek assistance from a Nexenta support engineer, advising them that SPARTA"
+		$ECHO "was unable to install pkg:/library/apr-util with error code $ERR_CODE"
+	   	exit 1
+	    else
+		$ECHO "Successfully installed."
+	    fi
+        else
+	    $ECHO "Must exit as SPARTA will not run without this package."
+	    exit 1
+        fi
+    else
+        $ECHO "already installed."
+    fi
+fi 
 
 $ECHO "\nWould you like me to run the performance gathering script? (y|n) \c"
 read RUNME
