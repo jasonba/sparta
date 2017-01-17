@@ -4,7 +4,7 @@
 # Program	: installer.sh
 # Author	: Jason Banham
 # Date		: 2013-01-04 | 2015-08-13 | 2016-07-20 | 2016-11-08
-# Version	: 0.22
+# Version	: 0.23
 # Usage		: installer.sh [<zpool name>]
 # Purpose	: Gather performance statistics for a NexentaStor appliance
 # History	: 0.01 - Initial version
@@ -32,7 +32,7 @@
 #		  0.20 - Modified installer to work on NS5.x Beta
 #		  0.21 - Added in the arc_adjust_ns5.d script to work on NexentaStor 5
 #		  0.22 - Added check for library required by rotatelog binary on NexentaStor 5
-
+#		  0.23 - Improved code to install missing library from local package, now bundled in tarball
 #
 
 #
@@ -90,6 +90,7 @@ SPARTA_TEMPLATE=$LOG_CONFIG/sparta.config.template
 SCRIPTS="arcstat.pl arc_adjust.v2.d arc_adjust_ns4.v2.d arc_adjust_ns5.d arc_evict.d cifssvrtop cifssvrtop.v4 delay_mintime.d delayed_writes.d dirty.d dnlc_lookups.d duration.d flame_stacks.sh fsstat.sh iscsisvrtop kmem_reap_100ms.d kmem_reap_100ms_ns.d large_delete.d txg_monitor.v3.d hotkernel.priv lockstat_sparta.sh metaslab.sh nfsio.d nfssrvutil.d nfssvrtop nfsrwtime.d rwlatency.d sbd_zvol_unmap.d sparta.sh sparta_shield.sh stmf_task_time.d tcp_input.d zil_commit_time.d zil_stat.d openzfs_txg.d arc_meta.sh cifs_taskq_watch.sh cifs_threads.sh nfsio_onehost.d arc_adjust_ns5.d stmf_sbd_unmap.d nicstat"
 BINARIES="rotatelogs nsver-check.pl"
 CONFIG_FILES="sparta.config"
+APRUTIL_LIB="libapr-util.p5p"
 TEMPLATE_FILES="README_WORKLOADS light"
 README="README"
 
@@ -284,6 +285,13 @@ do
     fi
 done
 
+#
+# Miscellaneous
+#
+# Due to a missing library, we need to copy this package to /tmp in case we need to install it later
+#
+$COPY payload/$APRUTIL_LIB /tmp
+
 $ECHO "Scripts installed"
 
 #
@@ -337,9 +345,30 @@ if [ "$OS_MAJOR" == "NexentaStor_5" ]; then
 	read INSTALL_ME 
 	INSTALL_ME="`$ECHO $INSTALL_ME | $TR '[:upper:]' '[:lower:]'`"
 	if [ "$INSTALL_ME" == "y" ]; then
-	    pkg install -q pkg:/library/apr-util
+	    $ECHO "Does this machine have direct access to the Internet ? (y|n) \c"
+	    read INTERNET_ACCESS
+	    INTERNET_ACCESS="`$ECHO $INTERNET_ACCESS | $TR '[:upper:]' '[:lower:]'`"
+	    if [ "$INTERNET_ACCESS" == "y" ]; then
+	        PKG_COMMAND="pkg install -q pkg:/library/apr-util"
+  		PKG_SOURCE="from remote package server"
+	    else
+		if [ -r /tmp/$APRUTIL_LIB ]; then
+		    PKG_COMMAND="pkg install -q -g file:///tmp/libapr-util.p5p pkg:/library/apr-util"
+		    PKG_SOURCE="from local p5p package"
+		else
+		    $ECHO "Could not locate /tmp/$APRUTIL_LIB"
+		    $ECHO "This should have been bundled with SPARTA in the payload directory, please locate and then manually"
+		    $ECHO "run the following command:\n\n"
+		    $ECHO "pkg install -g file:///<location_of_file>/libapr-util.p5p pkg:/library/apr-util"
+		    $ECHO "\nMust exit now."
+		    exit 1
+	        fi
+            fi
+	    $ECHO "Attempting to install missing package $PKG_SOURCE ... \c"
+ 	    $PKG_COMMAND
 	    ERR_CODE=$?
 	    if [ $ERR_CODE -ne 0 ]; then
+		$ECHO "Error!"
 		$ECHO "Unable to install that package, so I must exit."
 		$ECHO "Please seek assistance from a Nexenta support engineer, advising them that SPARTA"
 		$ECHO "was unable to install pkg:/library/apr-util with error code $ERR_CODE"
