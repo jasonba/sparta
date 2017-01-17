@@ -3,8 +3,8 @@
 #
 # Program	: auto-installer.sh
 # Author	: Jason Banham
-# Date		: 2013-11-04 : 2015-08-13 : 2016-07-20
-# Version	: 0.11
+# Date		: 2013-11-04 : 2015-08-13 : 2016-07-20 : 2017-01-17
+# Version	: 0.12
 # Usage		: auto-installer.sh <tarball>
 # Purpose	: Companion script to SPARTA for auto-installing a new sparta.tar.gz file
 # History	: 0.01 - Initial version, based on the installer.sh script
@@ -18,6 +18,7 @@
 #		  0.09 - Added kmem_reap_100ms_ns.d for the 4.0.4 no strategy change for Illumos #5379
 #                 0.10 - Modified installer to work on NS5.x Beta
 #		  0.11 - Added in the arc_adjust_ns5.d script to work on NexentaStor 5
+#		  0.12 - Fixed stupid bug where we hadn't defined what OS_MAJOR was, thus breaking installs
 #
 
 #
@@ -50,6 +51,11 @@ TR=/usr/bin/tr
 ZFS=/usr/sbin/zfs
 ZPOOL=/usr/sbin/zpool
 
+#
+# We need to figure out what version of NexentaStor we're running on and adjust a few
+# configuration items.
+#
+OS_MAJOR="`uname -v | cut -d':' -f1 | sed -e 's/\..*//g'`"
 case $OS_MAJOR in
     NexentaOS_134f )
                         ECHO=/usr/sun/bin/echo
@@ -120,6 +126,7 @@ if [ $? -ne 0 ]; then
 fi
 
 LOG_TYPE="`$ZFS get -H type $LOG_DATASET | awk '{print $3}'`"
+exit 0
 
 if [ -d $LOG_DIR ]; then
     if [ "$LOG_TYPE" != "filesystem" ]; then
