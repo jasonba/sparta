@@ -126,7 +126,6 @@ if [ $? -ne 0 ]; then
 fi
 
 LOG_TYPE="`$ZFS get -H type $LOG_DATASET | awk '{print $3}'`"
-exit 0
 
 if [ -d $LOG_DIR ]; then
     if [ "$LOG_TYPE" != "filesystem" ]; then
