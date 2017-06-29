@@ -3,11 +3,11 @@
 #
 # Program	: sparta.sh
 # Author	: Jason.Banham@Nexenta.COM
-# Date		: 2013-02-04 - 2016-11-11
-# Version	: 0.67
+# Date		: 2013-02-04 - 2017-06-28
+# Version	: 0.69
 # Usage		: sparta.sh [ -h | -help | start | status | stop | tarball ]
 # Purpose	: Gather performance statistics for a NexentaStor appliance
-# Legal		: Copyright 2013, 2014, 2015 and 2016 Nexenta Systems, Inc. 
+# Legal		: Copyright 2013, 2014, 2015, 2016 and 2017 Nexenta Systems, Inc. 
 #
 # History	: 0.01 - Initial version
 #		  0.02 - Added DNLC lookup and prstat functions
@@ -90,6 +90,10 @@
 #		  0.65 - Added in more network captures, kstat, ping and nicstat
 #		  0.66 - Added a check for a missing library on NexentaStor 5 GA for the rotatelogs binary
 #		  0.67 - The missing library is included in the tarball for local installatiob behind a firewall
+#		  0.68 - We now collect tunables for NFS performance analysis
+#		  0.69 - Added in new code to purge/zap the $LOG_DIR/samples if size exceeds $PURGE_LOG_WARNING
+#			 and code for pruning the $LOG_DIR/samples directory of data greater than a specified 
+#			 of number of days
 #
 #
 
@@ -134,7 +138,7 @@ fi
 #
 function usage
 {
-    $ECHO "Usage: `basename $0` [-h] [-C|-I|-N|-S] [-p zpoolname] -u [ yes | no ] [-P {protocol,protocol... | all | none} ] { start | stop | status | tarball | version | space }\n"
+    $ECHO "Usage: `basename $0` [-h] [-i <days>]  [-C|-I|-N|-S] [-p zpoolname] -u [ yes | no ] [-P {protocol,protocol... | all | none} ] { start | stop | status | tarball | version | space | prune | zap }\n"
 }
 
 #
@@ -157,6 +161,8 @@ function help
     $ECHO "    tarball       : generate a tarball of the performance data."
     $ECHO "    version       : display the version."
     $ECHO "    space         : show uncompressed space usage in $LOG_DIR"
+    $ECHO "    prune         : prune sample data greater than a specified number of days (-i <days>)"
+    $ECHO "    zap           : remove all historical sample data in $LOG_DIR"
     $ECHO ""
     $ECHO "The following are valid optional arguments:\n"
     $ECHO "  -C              : Enable CIFS data collection (in addition to existing protocols)"
@@ -168,6 +174,8 @@ function help
     $ECHO "  -P <protocol>   : Enable *only* the given protocol(s) nfs iscsi cifs stmf or a combination"
     $ECHO "                    of multiple protocols, eg: -P nfs,cifs"
     $ECHO "                    Also takes the options all or none to switch on all protocols, or collect none"
+    $ECHO "  -i <days>       : Specify the number of days (greater than) for pruning sample data"
+    $ECHO "                    (only works with the 'prune' command)"
     $ECHO ""
     $ECHO "  -v              : display the version."
     $ECHO "  -help | -h | -? : display this help page.\n"
@@ -457,6 +465,14 @@ function calc_space()
     '
 }
 
+#
+# Check that we're being passed in an integer
+#
+function is_integer()
+{   
+    num=$(printf '%s' "$1" | sed "s/^0*\([1-9]\)/\1/; s/'/^/")
+    test "$num" && printf '%d' "$num" >/dev/null 2>&1
+}
 
 #
 # Check to see if a scrub is already in progress on any of the zpools
@@ -573,12 +589,65 @@ function generate_tarball
 }
 
 #
+# In the field we've seen some users leave SPARTA running for days and weeks.  In some cases SPARTA
+# has been run numerous times, in the same month, year or over several years.
+# Naturally a *LOT* of data can be collected, so let's check to see if we should be pruning first.
+#
+function zap_logs
+{
+    SHIELD_PID="`pgrep -fl \"$SPARTA_SHIELD\" | awk '{print $1}'`"
+    if [ "x${SHIELD_PID}" != "x" ]; then
+        $ECHO "Cannot continue, SPARTA is already running and collecting data!"
+        $ECHO "Please consider stopping SPARTA (/perflogs/scripts/sparta.sh stop) before purging historical data\n"
+        exit 0
+    fi
+       
+    $ECHO "Purging historical data"
+    LOG_USAGE="`calc_space $LOG_DIR/samples`"
+    LOG_USAGE="`expr $LOG_USAGE / $MEGABYTE`" 
+    $ECHO "Current log space usage: $LOG_USAGE MB"
+
+    if [ -d $LOG_DIR/samples ]; then
+        $FIND $LOG_DIR/samples -type f -exec $RM {} + > /dev/null 2>&1
+    fi
+
+    LOG_USAGE="`calc_space $LOG_DIR/samples`"
+    LOG_USAGE="`expr $LOG_USAGE / $MEGABYTE`" 
+    $ECHO "After purging, log space usage: $LOG_USAGE MB"
+}
+
+#
+# Prune the logs, using finer grain controls because sometimes we may want to keep some of the older data
+# that is a few days or weeks old.
+#
+function prune_logs()
+{
+    if [ -d $LOG_DIR/samples ]; then
+        $ECHO "Pruning log files older than $1 days"
+        LOG_USAGE="`calc_space $LOG_DIR/samples`"
+        LOG_USAGE="`expr $LOG_USAGE / $MEGABYTE`" 
+        $ECHO "Current log space usage: $LOG_USAGE MB"
+    
+        $FIND $LOG_DIR/samples -type f -mtime +${1} -exec $RM {} +
+    
+        LOG_USAGE="`calc_space $LOG_DIR/samples`"
+        LOG_USAGE="`expr $LOG_USAGE / $MEGABYTE`" 
+        $ECHO "After pruning, log space usage: $LOG_USAGE MB"
+
+        $ECHO "Done"
+    else
+        $ECHO "Could not find $LOG_DIR/samples directory!"
+    fi
+}
+
+
+#
 # Process any supplied command line switches
 # before falling out to the sub-command processing stage
 #
 subcommand="usage"
 
-while getopts ChINP:Su:vp:? argopt
+while getopts ChIi:NP:Su:vp:? argopt
 do
         case $argopt in
         C)      # Enable CIFS scripts
@@ -588,6 +657,10 @@ do
         I)      # Enable iSCSI scripts
                 TRACE_ISCSI="y"
                 ;;
+
+	i)	# Get prune interval
+		PRUNE_INTERVAL=$OPTARG
+		;;
 
         N)      # Enable NFS scripts
                 TRACE_NFS="y"
@@ -652,6 +725,20 @@ subcommand="$1"
 # Check for a supplied command and act appropriately
 #
 case "$subcommand" in
+    prune )
+        is_integer $PRUNE_INTERVAL
+        if [ $? -ne 0 ]; then
+            $ECHO "Looks like you didn't specify an integer as the prune interval, must exit."
+            exit 0
+        fi
+
+	prune_logs $PRUNE_INTERVAL
+	exit 0
+	;;
+    zap )
+	zap_logs
+	exit 0
+	;;
     space )
 	SPACE_USED=`calc_space $LOG_DIR`
         echo "You are using `expr $SPACE_USED / $MEGABYTE` MB (uncompressed) in the $LOG_DIR directory for performance data." 
@@ -1329,6 +1416,22 @@ function launch_nfs_rwtime
 }
 
 
+function gather_nfs_tuning
+{
+    print_to_log "  NFS tuning parameters" $SPARTA_LOG $FF_DATE
+    if [ $NEXENTASTOR_MAJ_VER -gt 3 ]; then
+        print_to_log "ipadm _conn_req_max_q" $LOG_DIR/samples/ipadm.out $FF_DATE_SEP
+        $IPADM show-prop -p _conn_req_max_q tcp >> $LOG_DIR/samples/ipadm.out
+        $IPADM show-prop -p _conn_req_max_q0 tcp >> $LOG_DIR/samples/ipadm.out
+    
+        print_to_log "rpcbind listen backlog" $LOG_DIR/samples/rpcbind-smf-prop.out $FF_DATE_SEP
+        $SVCPROP svc:/network/rpc/bind:default >> $LOG_DIR/samples/rpcbind-smf-prop.out
+    else
+	print_to_log "Unable to collect NFS tuning data, this is a NexentaStor $NEXENTASTOR_MAJ_VER release"
+    fi
+}
+
+
 function gather_nfs_stat_server
 {
     print_to_log "  nfsstat -s" $SPARTA_LOG $FF_DATE
@@ -1553,6 +1656,35 @@ fi
 
 if [ ! -d $LOG_DIR/mdb ]; then
     $MKDIR $LOG_DIR/mdb
+fi
+
+
+#
+# Let's check to see if we should purge/zap some data before collecting new data
+#
+$ECHO "Checking $LOG_DIR for excessive historical data\n"
+PERFLOG_USAGE="`calc_space $LOG_DIR`"
+if [ $PERFLOG_USAGE -gt $PURGE_LOG_WARNING ]; then
+    $ECHO "The $LOG_DIR has more than `expr $PURGE_LOG_WARNING / $GIGABYTE` GB of data already collected."
+    $ECHO "This is likely to be historical data that is no longer required."
+    $ECHO "Would you like me to zap this data ? \c"
+    PURGE_ANS="n"
+    while [ true ]; do
+        $ECHO "(y|n) : \c"
+        read PURGE_ANS
+        if [ `echo $PURGE_ANS | wc -c` -lt 2 ]; then
+            continue;
+        fi
+        PURGE_ANS="`$ECHO $PURGE_ANS | $TR '[:upper:]' '[:lower:]'`"
+        if [ "$PURGE_ANS" == "y" -o "$PURGE_ANS" == "n" ]; then
+            break
+        fi
+    done
+    if [ "$PURGE_ANS" == "y" ]; then
+        zap_logs
+    fi
+else
+    echo "Log space usage was under `expr $PURGE_LOG_WARNING / $GIGABYTE` GB"
 fi
 
 

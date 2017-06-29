@@ -320,6 +320,9 @@ case $OS_MAJOR in
 	    $COPY $SPARTA_CONFIG ${SPARTA_CONFIG}.prepatch
             $SED -e 's/ENABLE_CIFS_UTIL=0/ENABLE_CIFS_UTIL=1/g' -e 's/ENABLE_CIFS_OPS=0/ENABLE_CIFS_OPS=1/' ${SPARTA_CONFIG}.prepatch > ${SPARTA_CONFIG}
 	    $ECHO "  Enabled smbstat data gathering as appliance meets patch levels"
+        else
+            $ECHO "  This version of NexentaStor 4 does *NOT* meet the requirement to enable smbstat - DISABLING"
+	    $ECHO "  (see NEX-3273)"
         fi
 	;;
     NexentaStor_5 )
