@@ -3,8 +3,8 @@
 #
 # Program	: sparta.sh
 # Author	: Jason.Banham@Nexenta.COM
-# Date		: 2013-02-04 - 2017-06-28
-# Version	: 0.70
+# Date		: 2013-02-04 - 2017-12-12
+# Version	: 0.71
 # Usage		: sparta.sh [ -h | -help | start | status | stop | tarball ]
 # Purpose	: Gather performance statistics for a NexentaStor appliance
 # Legal		: Copyright 2013, 2014, 2015, 2016 and 2017 Nexenta Systems, Inc. 
@@ -97,6 +97,8 @@
 #                 0.70 - Changed format of tarball file to remove colons in time as this causes issues with the Linux/GNU
 #                        versions of tar, requiring you to use --force-local to stop it interpreting the filename as
 #                        a URL to a remote system
+#                 0.71 - Rewrote the large_delete.d script to match up deletes based on dnode object number and to
+#                        make the output easier to understand
 #
 #
 
