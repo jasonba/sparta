@@ -54,6 +54,13 @@ function shutdown_sparta
     else
         logger -p daemon.notice "SPARTA shutdown already in progress as PID = `cat $STOPPING_FILE`"
     fi
+    if [ $SPARTA_ALERT_MAILING_LIST != "nobody" ]; then
+        /usr/lib/sendmail $SPARTA_ALERT_MAILING_LIST << EOF
+Subject: SPARTA has received a kill/terminate signal
+
+WARNING, SPARTA has been shutdown via a kill/terminate signal
+EOF
+    fi
     exit 0
 }
 
