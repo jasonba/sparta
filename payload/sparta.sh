@@ -3,8 +3,8 @@
 #
 # Program	: sparta.sh
 # Author	: Jason.Banham@Nexenta.COM
-# Date		: 2013-02-04 - 2017-12-12
-# Version	: 0.71
+# Date		: 2013-02-04 - 2018-01-24
+# Version	: 0.72
 # Usage		: sparta.sh [ -h | -help | start | status | stop | tarball ]
 # Purpose	: Gather performance statistics for a NexentaStor appliance
 # Legal		: Copyright 2013, 2014, 2015, 2016 and 2017 Nexenta Systems, Inc. 
@@ -89,7 +89,7 @@
 #		  0.64 - Added in some package information collection
 #		  0.65 - Added in more network captures, kstat, ping and nicstat
 #		  0.66 - Added a check for a missing library on NexentaStor 5 GA for the rotatelogs binary
-#		  0.67 - The missing library is included in the tarball for local installatiob behind a firewall
+#		  0.67 - The missing library is included in the tarball for local installation behind a firewall
 #		  0.68 - We now collect tunables for NFS performance analysis
 #		  0.69 - Added in new code to purge/zap the $LOG_DIR/samples if size exceeds $PURGE_LOG_WARNING
 #			 and code for pruning the $LOG_DIR/samples directory of data greater than a specified 
@@ -99,6 +99,7 @@
 #                        a URL to a remote system
 #                 0.71 - Rewrote the large_delete.d script to match up deletes based on dnode object number and to
 #                        make the output easier to understand
+#                 0.72 - Changed the nfsio.d script to nfsio_handsoff.d as the other version required user interaction
 #
 #
 
