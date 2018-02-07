@@ -3,8 +3,8 @@
 #
 # Program	: sparta.sh
 # Author	: Jason.Banham@Nexenta.COM
-# Date		: 2013-02-04 - 2018-01-24
-# Version	: 0.72
+# Date		: 2013-02-04 - 2018-02-05
+# Version	: 0.75
 # Usage		: sparta.sh [ -h | -help | start | status | stop | tarball ]
 # Purpose	: Gather performance statistics for a NexentaStor appliance
 # Legal		: Copyright 2013, 2014, 2015, 2016 and 2017 Nexenta Systems, Inc. 
@@ -100,6 +100,12 @@
 #                 0.71 - Rewrote the large_delete.d script to match up deletes based on dnode object number and to
 #                        make the output easier to understand
 #                 0.72 - Changed the nfsio.d script to nfsio_handsoff.d as the other version required user interaction
+#                 0.73 - Modified tarball creation code to show progress bar
+#                        Included an STMF threads script to monitor needed and current values
+#                        Additional CIFS data collection tools using the inbuilt statistics from smbstat
+#                        Modified OpenZFS TXG monitor to be more accurate on delays and non-delays for specified zpool
+#                 0.74 - Now collects ARC prefetch kstats
+#                 0.75 - Significant speed increase on SPARTA startup after rethink on previous design decision
 #
 #
 
@@ -280,6 +286,10 @@ FF_DATE_SEP=3
 FF_NEWL=4
 
 #
+# Moved print_to_log function to sparta.config
+#
+
+#
 # Zero out/truncate/create an empty file.
 #
 # arg1 = The file to zero out
@@ -288,42 +298,6 @@ function zero
 {
     $CP /dev/null $1
 }
-
-#
-# The function print_to_log takes a message and prints it to a log file and stdout
-# it can also take another argument to prettify the formatting, inserting a seperator
-# and newlines, where appropriate.
-#
-# arg 1 = The message to send
-# arg 2 = The log file to write to
-# arg 3 = The formatting flag
-#
-function print_to_log
-{
-    PREFIX=""
-    POSTFIX=""
-
-    case $3 in 
-              1 )
- 		PREFIX="${PREFIX}`$DATE +%Y-%m-%d_%H:%M:%S` "
-		;;
-	      2 )
-		POSTFIX="${POSTFIX}\n---"
-		;;
-	      3 )
-                PREFIX="$PREFIX`$DATE +%Y-%m-%d_%H:%M:%S` "
-		POSTFIX="$POSTFIX\n---"
-		;;
-	      4 )
-		POSTFIX="$POSTFIX\n"
-		;;
-	      * )
-		;;
-    esac
-
-    $ECHO "${PREFIX}${1}${POSTFIX}" >> $2
-}
-
 
 #
 # Display a spinning cursor to show progress
@@ -572,19 +546,20 @@ function generate_tarball
 	return 1
     fi
 
-    $ECHO "Creating tarball ... \c" 
-    $TAR cf $PERF_TARBALL $LOG_DIR >> $SPARTA_LOG 2>&1
-    if [ -r ${PERF_TARBALL}.gz ]; then
-        mv ${PERF_TARBALL}.gz ${PERF_TARBALL}.gz.$$
-    fi
-    $ECHO "done"
-    $ECHO "Compressing tarball ... \c" 
-    $GZIP -v $PERF_TARBALL >> $SPARTA_LOG 2>&1
-    if [ $? -eq 0 ]; then
-        $ECHO "done"
-    else
-    	$ECHO "failed! error encountered compressing the file (will not have .gz suffix)"
-    fi
+    $ECHO "Creating tarball ... " 
+    $TAR czf - $LOG_DIR | ($PV -p --timer --rate --bytes > ${PERF_TARBALL}.gz)
+#    $TAR cf $PERF_TARBALL $LOG_DIR >> $SPARTA_LOG 2>&1
+#    if [ -r ${PERF_TARBALL}.gz ]; then
+#        mv ${PERF_TARBALL}.gz ${PERF_TARBALL}.gz.$$
+#    fi
+#    $ECHO "done"
+#    $ECHO "Compressing tarball ... \c" 
+#    $GZIP -v $PERF_TARBALL >> $SPARTA_LOG 2>&1
+#    if [ $? -eq 0 ]; then
+#        $ECHO "done"
+#    else
+#    	$ECHO "failed! error encountered compressing the file (will not have .gz suffix)"
+#    fi
 
     $ECHO "\nA snapshot of the currently collected data has been collected."
     $ECHO "Please upload ${PERF_TARBALL}.gz to $FTP_SERVER:/upload/<CASE_REF>"
@@ -916,6 +891,11 @@ function gather_interrupts
 
 function launch_hotkernel
 {
+    $LOG_LAUNCHERS/hotkernel.sh $1 &
+}
+
+function obsolete_launch_hotkernel
+{
     for x in {1..3}
     do
         print_to_log "Sample $x" $LOG_DIR/samples/${1} $FF_DATE_SEP
@@ -969,6 +949,11 @@ function gather_kernel_mdb
 
 function gather_flame_stacks
 {
+    $LOG_LAUNCHERS/flame_stacks.sh &
+}
+
+function obsolete_gather_flame_stacks
+{
     print_to_log "Collecting kernel/user stacks" $SPARTA_LOG $FF_DATE
     print_to_log "  Starting kernel stack collection" $SPARTA_LOG $FF_DATE
     $FLAME_STACKS -k > $LOG_DIR/samples/flame_kernel_stacks.out 2>&1 &
@@ -995,6 +980,11 @@ function gather_flame_stacks
 
 function gather_kmastat
 {
+    $LOG_LAUNCHERS/kmastat.sh &
+}
+
+function obsolete_gather_kmastat
+{
     print_to_log "Collecting kernel kmastat data" $SPARTA_LOG $FF_DATE
     $ECHO ". \c"
     let count=0
@@ -1009,6 +999,11 @@ function gather_kmastat
 }
 
 function gather_kmemslabs
+{
+    $LOG_LAUNCHERS/kmemslabs.sh &
+}
+
+function obsolete_gather_kmemslabs
 {
     print_to_log "Collecting kernel kmem slabs data" $SPARTA_LOG $FF_DATE
     $ECHO ". \c"
@@ -1041,7 +1036,7 @@ function gather_ping
 {
     if [ -r /etc/defaultrouter ]; then
         DEF_ROUTE="`cat /etc/defaultrouter`"
-	$PING -s $DEF_ROUTE $PING_SIZE $PING_COUNT > $LOG_DIR/samples/ping.out
+	$PING -s $DEF_ROUTE $PING_SIZE $PING_COUNT > $LOG_DIR/samples/ping.out &
     else
 	$ECHO "Could not find default route" > $LOG_DIR/samples/ping.out
     fi
@@ -1176,6 +1171,11 @@ function launch_arc_meta
 
 function gather_arc_mdb
 {
+    $LOG_LAUNCHERS/arc_mdb.sh &
+}
+
+function obsolete_gather_arc_mdb
+{
     for x in {1..3}
     do
         print_to_log "  arc statistics - sample ${x}" $SPARTA_LOG $FF_DATE
@@ -1195,6 +1195,23 @@ function launch_arcstat
     else
         print_to_log "  arcstat.pl already running as PID $ARCSTAT_PL_PID" $SPARTA_LOG $FF_DATE
     fi
+}
+
+function gather_arc_prefetch_stats
+{
+    $LOG_LAUNCHERS/arc_prefetch.sh &
+}
+
+function obsolete_gather_arc_prefetch_stats
+{
+    for x in {1..3}
+    do
+        print_to_log "  arc prefetch kstats - sample ${x}" $SPARTA_LOG $FF_DATE
+        print_to_log "kstat zfetchstats - sample ${x}" $LOG_DIR/samples/arc.prefetch.kstat $FF_DATE_SEP
+        kstat -m zfs -n zfetchstats >> $LOG_DIR/samples/arc.prefetch.kstat
+        $ECHO ".\c"
+        cursor_pause 5
+    done
 }
 
 function launch_zil_commit
@@ -1320,6 +1337,11 @@ function launch_dnlc
 
 function gather_memstat
 {
+    $LOG_LAUNCHERS/memstat.sh &
+}
+
+function obsolete_gather_memstat
+{
     for x in {1..3}
     do
         print_to_log "  memory statistics - sample ${x}" $SPARTA_LOG $FF_DATE
@@ -1365,13 +1387,6 @@ function gather_fsstat
 {
     print_to_log "Filesystem statistics" $SPARTA_LOG $FF_DATE
     $FSSTAT_SH $FSSTAT_OPTS >> $LOG_DIR/samples/fsstat.out &
-    let count=0
-    while [ $count -lt $FSSTAT_SAMPLE_TIME ]; do
-        cursor_update
-        sleep 1
-        let count=$count+1
-    done
-    cursor_blank
 }
 
 
@@ -1440,6 +1455,11 @@ function gather_nfs_tuning
 
 function gather_nfs_stat_server
 {
+    $LOG_LAUNCHERS/nfsstat.sh &
+}
+
+function obsolete_gather_nfs_stat_server
+{
     print_to_log "  nfsstat -s" $SPARTA_LOG $FF_DATE
     print_to_log "nfsstat -s" $LOG_DIR/samples/nfsstat-s.out $FF_DATE_SEP
     $NFSSTAT $NFSSTAT_OPTS >> $LOG_DIR/samples/nfsstat-s.out 2>&1 & 2>&1 &
@@ -1496,6 +1516,11 @@ function launch_stmf_task_time
 
 function gather_stmf_workers
 {
+    $LOG_LAUNCHERS/stmf_workers.sh &
+}
+
+function obsolete_gather_stmf_workers
+{
     for x in {1..10}
     do
         print_to_log "  stmf current worker backlog statistics - sample ${x}" $SPARTA_LOG $FF_DATE
@@ -1505,6 +1530,19 @@ function gather_stmf_workers
         cursor_pause 5
     done
 }
+
+function launch_stmf_threads
+{
+    PGREP_STRING="dtrace .*$STMF_THREADS"
+    STMF_THREADS_PID="`pgrep -fl "$PGREP_STRING" | awk '{print $1}'`"
+    if [ "x$STMF_THREADS_PID" == "x" ]; then
+	$STMF_THREADS | $ROTATELOGS $LOG_DIR/samples/stmf_threads.out.%Y-%m-%d_%H_%M $LOG_ROTATE_TIME &
+	print_to_log "  Started stmf_threads monitoring" $SPARTA_LOG $FF_DATE
+    else    
+	print_to_log "  stmf_threads monitoring already running as PID $STMF_THREADS_PID" $SPARTA_LOG $FF_DATE
+    fi
+}
+
 
 
 ### CIFS specific scripts defined here
@@ -1536,6 +1574,7 @@ function launch_cifs_util
 
 function launch_cifs_ops
 {
+    $SMBSTAT -r > $LOG_DIR/samples/smbstat-r.epoch.out
     $PGREP -fl "$SMBSTAT $SMB_OPS_OPTS" > /dev/null 2>&1
     if [ $? -ne 0 ]; then
 	$SMBSTAT $SMB_OPS_OPTS | $ROTATELOGS $LOG_DIR/samples/${1}.%Y-%m-%d_%H_%M $LOG_ROTATE_TIME 2>&1 &
@@ -1957,21 +1996,26 @@ $ECHO "It may take upto several hours for the dtrace scripts to build up a profi
 $ECHO "the problem, so it may be expected to revisit and re-upload those particular"
 $ECHO "log files at a later date.\n"
 
-$ECHO "Would you like to generate a tarball of the data collected so far? \c"
-TARBALL_ANS="n"
-while [ true ]; do
-    $ECHO "(y|n) : \c"
-    read TARBALL_ANS
-    if [ `echo $TARBALL_ANS | wc -c` -lt 2 ]; then
-        continue;
-    fi
-    TARBALL_ANS="`$ECHO $TARBALL_ANS | $TR '[:upper:]' '[:lower:]'`"
-    if [ "$TARBALL_ANS" == "y" -o "$TARBALL_ANS" == "n" ]; then
-        break
-    fi
-done
-if [ "$TARBALL_ANS" == "y" ]; then
-    generate_tarball
-fi   
+$DATE +%Y-%m-%d_%H:%M:%S > $SPARTA_ETC/.lastran
+
+$ECHO "Once at least 30 minutes has elapsed, please generate a tarball of the data using:\n"
+$ECHO "bash# /perflogs/scripts/sparta.sh tarball"
+
+#$ECHO "Would you like to generate a tarball of the data collected so far? \c"
+#TARBALL_ANS="n"
+#while [ true ]; do
+#    $ECHO "(y|n) : \c"
+#    read TARBALL_ANS
+#    if [ `echo $TARBALL_ANS | wc -c` -lt 2 ]; then
+#        continue;
+#    fi
+#    TARBALL_ANS="`$ECHO $TARBALL_ANS | $TR '[:upper:]' '[:lower:]'`"
+#    if [ "$TARBALL_ANS" == "y" -o "$TARBALL_ANS" == "n" ]; then
+#        break
+#    fi
+#done
+#if [ "$TARBALL_ANS" == "y" ]; then
+#    generate_tarball
+#fi   
 
 exit 0

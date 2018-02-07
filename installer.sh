@@ -42,6 +42,7 @@ LOG_DIR=/perflogs
 LOG_CONFIG=${LOG_DIR}/etc
 LOG_BIN=${LOG_DIR}/bin
 LOG_SCRIPTS=${LOG_DIR}/scripts
+LOG_LAUNCHERS=${LOG_SCRIPTS}/launchers
 LOG_TEMPLATES=${LOG_DIR}/workload_templates
 
 #
@@ -87,8 +88,9 @@ SPARTA_TEMPLATE=$LOG_CONFIG/sparta.config.template
 #
 # Scripts and files to install
 #
-SCRIPTS="arcstat.pl arc_adjust.v2.d arc_adjust_ns4.v2.d arc_adjust_ns5.d arc_evict.d cifssvrtop cifssvrtop.v4 delay_mintime.d delayed_writes.d dirty.d dnlc_lookups.d duration.d flame_stacks.sh fsstat.sh iscsisvrtop kmem_reap_100ms.d kmem_reap_100ms_ns.d large_delete.d txg_monitor.v3.d hotkernel.priv lockstat_sparta.sh metaslab.sh nfsio.d nfssrvutil.d nfssvrtop nfsrwtime.d rwlatency.d sbd_zvol_unmap.d sparta.sh sparta_shield.sh stmf_task_time.d tcp_input.d zil_commit_time.d zil_stat.d openzfs_txg.d arc_meta.sh cifs_taskq_watch.sh cifs_threads.sh nfsio_onehost.d arc_adjust_ns5.d stmf_sbd_unmap.d nicstat"
-BINARIES="rotatelogs nsver-check.pl"
+SCRIPTS="arc_adjust_ns4.v2.d arc_adjust_ns5.d arc_adjust.v2.d arc_evict.d arc_meta.sh arcstat_ns5.pl arcstat.pl cifs_taskq_watch.sh cifs_threads.sh cifssvrtop cifssvrtop.v4 delay_mintime.d delayed_writes.d dirty.d dnlc_lookups.d duration.d flame_stacks.sh fsstat.sh hotkernel.priv iscsirwlat.d iscsisvrtop kmem_reap_100ms_ns.d kmem_reap_100ms.d large_delete.d lockstat_sparta.sh metaslab.sh nfsio_handsoff.d nfsio_onehost.d nfsio.d nfsrwtime.d nfssrvutil.d nfssvrtop nicstat openzfs_txg.d rwlatency.d sbd_zvol_unmap.d sparta_shield.sh sparta.sh stmf_sbd_unmap.d stmf_task_time.d stmf_threads.d tcp_input.d txg_monitor.v3.d zil_commit_time.d zil_stat.d"
+BINARIES="rotatelogs nsver-check.pl pv"
+LAUNCHERS="arc_mdb.sh arc_prefetch.sh hotkernel.sh flame_stacks.sh kmastat.sh kmemslabs.sh memstat.sh nfsstat.sh stmf_workers.sh"
 CONFIG_FILES="sparta.config"
 APRUTIL_LIB="libapr-util.p5p"
 TEMPLATE_FILES="README_WORKLOADS light"
@@ -211,6 +213,9 @@ $ECHO "Installing scripts ..."
 if [ ! -d $LOG_SCRIPTS ]; then
     mkdir $LOG_SCRIPTS
 fi
+if [ ! -d $LOG_LAUNCHERS ]; then
+    mkdir $LOG_LAUNCHERS
+fi
 if [ ! -d $LOG_CONFIG ]; then
     mkdir $LOG_CONFIG
 fi
@@ -258,6 +263,14 @@ do
     $COPY payload/$script $LOG_SCRIPTS/
     if [ $? -ne 0 ]; then
 	$ECHO "Failed to install $script"
+    fi
+done
+
+for launcher in $LAUNCHERS
+do
+    $COPY payload/launchers/$launcher $LOG_LAUNCHERS/
+    if [ $? -ne 0 ]; then
+        $ECHO "Failed to install launcher $launcher"
     fi
 done
 

@@ -29,6 +29,7 @@ txg-syncing
 {
         this->dp = (dsl_pool_t *)arg0;
 	this->dirty = this->dp->dp_dirty_total;
+        this->txg_syncing = this->dp->dp_tx.tx_syncing_txg;
 	start = timestamp;
 }
 
@@ -36,21 +37,28 @@ txg-synced
 /start && ((dsl_pool_t *)arg0)->dp_spa->spa_name == $$1/
 {
         this->d = timestamp - start;
-        printf("%Y %s %4dMB of %4dMB used, synced in %dms, delays = %d, no_delays = %d\n", walltimestamp, stringof($$1), this->dirty / 1024 / 1024, `zfs_dirty_data_max / 1024 / 1024, this->d / 1000000, this->delay, this->no_delay);
+
+        printf("%Y %s %4dMB of %4dMB used, synced in %dms, delays = %d, no_delays = %d, syncing txg = %d\n", walltimestamp, stringof($$1), this->dirty / 1024 / 1024, `zfs_dirty_data_max / 1024 / 1024, this->d / 1000000, this->delay, this->no_delay, this->txg_syncing);
+
 	this->delay = 0;
 	this->no_delay = 0;
         this->dirty = 0;
 }
 
+fbt::dsl_pool_need_dirty_delay:entry
+{
+    this->dsl = (struct dsl_pool *)arg0;
+    this->spa = (struct spa *)this->dsl->dp_spa;
+}
 
 fbt::dsl_pool_need_dirty_delay:return
-/args[1] == 1/
+/args[1] == 1 && this->spa->spa_name == $$1/
 {
     this->delay++;
 }
 
 fbt::dsl_pool_need_dirty_delay:return
-/args[1] == 0/
+/args[1] == 0 && this->spa->spa_name == $$1/
 {
     this->no_delay++;
 }

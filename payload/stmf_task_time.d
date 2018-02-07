@@ -19,11 +19,16 @@
  *   #define	TF_READ_DATA		0x40
  *   #define	TF_WRITE_DATA		0x20
  *
+ * Version: 0.2
+ *
  * Comments: Jason.Banham@Nexenta.COM
  *
  * Author: Tony.Huygen@Nexenta.COM
  * Copyright 2013, Nexenta Systems, Inc. All rights reserved.
- * Version: 0.1
+ *
+ * History: 0.01 - Initial version by Tony
+ *          0.02 - Modified to print timestamps to make graphing easier (JB)
+ *
  */
 
 
@@ -41,8 +46,8 @@ dtrace:::BEGIN
         w_lu_xfer = 0;
         w_lport_xfer = 0;
 
-        printf("\nreads/sec  Avg:lu_xfer/lport_xfer/qtime/task_total(usec)   ");
-        printf("writes/sec   Avg:lu_xfer/lport_xfer/qtime/task_total(usec)");
+        printf("\nDate/Time              reads/sec  Avg:lu_xfer/lport_xfer/qtime/task_total(usec)   ");
+        printf("writes/sec   Avg:lu_xfer/lport_xfer/qtime/task_total(usec)\n");
 }
 
 /*
@@ -92,7 +97,7 @@ profile:::tick-1sec
         avg_lu_xfer = r_lu_xfer / r_iops;
         avg_lport_xfer = r_lport_xfer / r_iops;
 
-        printf("\nreads/s: %d  Time:%d/%d/%d/%d   ", r_iops,
+        printf("%Y : reads/s: %d  Time: %d / %d / %d / %d   ", walltimestamp, r_iops,
 	    avg_lu_xfer, avg_lport_xfer, avg_qtime, avg_task);
 
         avg_task = wtask / w_iops;
@@ -100,7 +105,7 @@ profile:::tick-1sec
         avg_lu_xfer = w_lu_xfer / w_iops;
         avg_lport_xfer = w_lport_xfer / w_iops;
 
-        printf("writes/s: %d  Time:%d/%d/%d/%d", w_iops,
+        printf("writes/s: %d  Time: %d / %d / %d / %d\n", w_iops,
 	    avg_lu_xfer, avg_lport_xfer, avg_qtime, avg_task);
 
 	/* Resetting globals */
