@@ -3,8 +3,8 @@
 #
 # Program	: sparta.sh
 # Author	: Jason.Banham@Nexenta.COM
-# Date		: 2013-02-04 - 2018-02-05
-# Version	: 0.75
+# Date		: 2013-02-04 - 2018-02-17
+# Version	: 0.76
 # Usage		: sparta.sh [ -h | -help | start | status | stop | tarball ]
 # Purpose	: Gather performance statistics for a NexentaStor appliance
 # Legal		: Copyright 2013, 2014, 2015, 2016 and 2017 Nexenta Systems, Inc. 
@@ -106,6 +106,7 @@
 #                        Modified OpenZFS TXG monitor to be more accurate on delays and non-delays for specified zpool
 #                 0.74 - Now collects ARC prefetch kstats
 #                 0.75 - Significant speed increase on SPARTA startup after rethink on previous design decision
+#                 0.76 - Removed debugging line from cifssvrtop.v4 which was generating huge files
 #
 #
 
@@ -219,6 +220,7 @@ function help
 function script_status
 {
     pgrep -fl 'dtrace .* [/perflogs|nfssvrtop|cifssvrtop|iscsisvrtop|metaslab]'
+    pgrep -fl 'perflogs/scripts/launchers'
     pgrep -fl $ARCSTAT_PL
     pgrep -fl $LOCKSTAT_SPARTA
     pgrep -fl "$VMSTAT $VMSTAT_OPTS"
