@@ -4,7 +4,7 @@
 # Program	: sparta.sh
 # Author	: Jason.Banham@Nexenta.COM
 # Date		: 2013-02-04 - 2018-02-17
-# Version	: 0.76
+# Version	: 0.77
 # Usage		: sparta.sh [ -h | -help | start | status | stop | tarball ]
 # Purpose	: Gather performance statistics for a NexentaStor appliance
 # Legal		: Copyright 2013, 2014, 2015, 2016 and 2017 Nexenta Systems, Inc. 
@@ -107,6 +107,8 @@
 #                 0.74 - Now collects ARC prefetch kstats
 #                 0.75 - Significant speed increase on SPARTA startup after rethink on previous design decision
 #                 0.76 - Removed debugging line from cifssvrtop.v4 which was generating huge files
+#		  0.77 - Changes to NexentaStor 5.2 onwards change ZIL behaviour (Illumos #8585)
+#                        - Modified the zil_stat.d script for 5.2+ to make this work again but now we have two scripts
 #
 #
 
@@ -462,7 +464,7 @@ function is_integer()
 #
 function check_for_scrub()
 {
-    for zpool_name in `zpool list -H | awk '{print $1}'`
+    for zpool_name in `$ZPOOL list -H | awk '{print $1}'`
     do
         if [ "`zpool status $zpool_name | awk '/scrub in progress/ {print $1}'`" == "scan:" ]; then
 	    $ECHO "    scrub running on $zpool_name"
@@ -768,6 +770,17 @@ esac
 #
 space_checker
 
+
+#
+# Recent 5.x SPARTA data has arrived in non LC_TIME=C format
+# Check to see whether we have the C locale installed
+# date '+%a %b %e %T %Z %Y'
+#
+locale -a > $LOG_DIR/locale-a.out
+grep -q '^C' $LOG_DIR/locale-a.out
+if [ $? -ne 0 ]; then
+    do_log "C locale not installed, date format analysis may not work"
+fi
 
 
 ################################################################################

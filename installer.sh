@@ -3,8 +3,8 @@
 #
 # Program	: installer.sh
 # Author	: Jason Banham
-# Date		: 2013-01-04 | 2015-08-13 | 2016-07-20 | 2016-11-08
-# Version	: 0.23
+# Date		: 2013-01-04 | 2015-08-13 | 2016-07-20 | 2016-11-08 | 2019-02-22
+# Version	: 0.24
 # Usage		: installer.sh [<zpool name>]
 # Purpose	: Gather performance statistics for a NexentaStor appliance
 # History	: 0.01 - Initial version
@@ -33,6 +33,7 @@
 #		  0.21 - Added in the arc_adjust_ns5.d script to work on NexentaStor 5
 #		  0.22 - Added check for library required by rotatelog binary on NexentaStor 5
 #		  0.23 - Improved code to install missing library from local package, now bundled in tarball
+#                 0.24 - Modified to install the zil_stat script for NexentaStor 5.2 onwards
 #
 
 #
@@ -88,7 +89,7 @@ SPARTA_TEMPLATE=$LOG_CONFIG/sparta.config.template
 #
 # Scripts and files to install
 #
-SCRIPTS="arc_adjust_ns4.v2.d arc_adjust_ns5.d arc_adjust.v2.d arc_evict.d arc_meta.sh arcstat_ns5.pl arcstat.pl cifs_taskq_watch.sh cifs_threads.sh cifssvrtop cifssvrtop.v4 delay_mintime.d delayed_writes.d dirty.d dnlc_lookups.d duration.d flame_stacks.sh fsstat.sh hotkernel.priv iscsirwlat.d iscsisvrtop kmem_reap_100ms_ns.d kmem_reap_100ms.d large_delete.d lockstat_sparta.sh metaslab.sh nfsio_handsoff.d nfsio_onehost.d nfsio.d nfsrwtime.d nfssrvutil.d nfssvrtop nicstat openzfs_txg.d rwlatency.d sbd_zvol_unmap.d sparta_shield.sh sparta.sh stmf_sbd_unmap.d stmf_task_time.d stmf_threads.d tcp_input.d txg_monitor.v3.d zil_commit_time.d zil_stat.d"
+SCRIPTS="arc_adjust_ns4.v2.d arc_adjust_ns5.d arc_adjust.v2.d arc_evict.d arc_meta.sh arcstat_ns5.pl arcstat.pl cifs_taskq_watch.sh cifs_threads.sh cifssvrtop cifssvrtop.v4 delay_mintime.d delayed_writes.d dirty.d dnlc_lookups.d duration.d flame_stacks.sh fsstat.sh hotkernel.priv iscsirwlat.d iscsisvrtop kmem_reap_100ms_ns.d kmem_reap_100ms.d large_delete.d lockstat_sparta.sh metaslab.sh nfsio_handsoff.d nfsio_onehost.d nfsio.d nfsrwtime.d nfssrvutil.d nfssvrtop nicstat openzfs_txg.d rwlatency.d sbd_zvol_unmap.d sparta_shield.sh sparta.sh stmf_sbd_unmap.d stmf_task_time.d stmf_threads.d tcp_input.d txg_monitor.v3.d zil_commit_time.d zil_stat.d zil_stat_520.d"
 BINARIES="rotatelogs nsver-check.pl pv"
 LAUNCHERS="arc_mdb.sh arc_prefetch.sh hotkernel.sh flame_stacks.sh kmastat.sh kmemslabs.sh memstat.sh nfsstat.sh stmf_workers.sh"
 CONFIG_FILES="sparta.config"

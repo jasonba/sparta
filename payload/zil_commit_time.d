@@ -13,8 +13,16 @@
  * Now printing timestamps per tick operation to correlate any unusual
  * ZIL activity and latency issues.
  * 
- * Author: Jason Banham 
- * Copyright 2012 and 2013, Nexenta Systems, Inc. All rights reserved.
+ * Program       : zil_commit_time.d
+ * Author        : Jason.Banham@Nexenta.COM
+ * Date          : 2013-02-04 - 2018-08-20
+ * Version       : 0.2
+ * Usage         : ./zil_commit_time.d
+ * Purpose       : Understand time spent in the zil_commit() code path
+ * Legal         : Copyright 2013 - 2018 Nexenta Systems, Inc.
+ *
+ * History       : 0.01 - Initial version
+ *                 0.02 - Finally decided to truncate the data
  */
 
 fbt:zfs:zil_commit:entry
@@ -37,6 +45,7 @@ fbt:zfs:zil_commit:return
 tick-5sec
 {
     printf("%Y\n", walltimestamp);
+    trunc(@);
     printa(@);
 }
 
