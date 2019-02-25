@@ -3,11 +3,11 @@
 #
 # Program	: sparta.sh
 # Author	: Jason.Banham@Nexenta.COM
-# Date		: 2013-02-04 - 2018-02-17
-# Version	: 0.77
+# Date		: 2013-02-04 - 2018-02-25
+# Version	: 0.78
 # Usage		: sparta.sh [ -h | -help | start | status | stop | tarball ]
 # Purpose	: Gather performance statistics for a NexentaStor appliance
-# Legal		: Copyright 2013, 2014, 2015, 2016 and 2017 Nexenta Systems, Inc. 
+# Legal		: Copyright 2013, 2014, 2015, 2016, 2017, 2018 and 2019 Nexenta Systems, Inc. 
 #
 # History	: 0.01 - Initial version
 #		  0.02 - Added DNLC lookup and prstat functions
@@ -109,7 +109,8 @@
 #                 0.76 - Removed debugging line from cifssvrtop.v4 which was generating huge files
 #		  0.77 - Changes to NexentaStor 5.2 onwards change ZIL behaviour (Illumos #8585)
 #                        - Modified the zil_stat.d script for 5.2+ to make this work again but now we have two scripts
-#
+#                 0.78 - NEX-9752 / Illumos #6950 removed the arc_do_user_evicts() code, so kmem_reap_100ms.d no longer
+#                        worked in 5.1 onwards.  Created a kmem_reap_100ms_5x.d script with this removed.
 #
 
 # 
