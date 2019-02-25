@@ -4,7 +4,7 @@
 # Program	: sparta.sh
 # Author	: Jason.Banham@Nexenta.COM
 # Date		: 2013-02-04 - 2018-02-25
-# Version	: 0.78
+# Version	: 0.79
 # Usage		: sparta.sh [ -h | -help | start | status | stop | tarball ]
 # Purpose	: Gather performance statistics for a NexentaStor appliance
 # Legal		: Copyright 2013, 2014, 2015, 2016, 2017, 2018 and 2019 Nexenta Systems, Inc. 
@@ -111,6 +111,7 @@
 #                        - Modified the zil_stat.d script for 5.2+ to make this work again but now we have two scripts
 #                 0.78 - NEX-9752 / Illumos #6950 removed the arc_do_user_evicts() code, so kmem_reap_100ms.d no longer
 #                        worked in 5.1 onwards.  Created a kmem_reap_100ms_5x.d script with this removed.
+#                 0.78 - Changed trunc() to clear() in zil_commit_time.d as requested by Daniel Borek
 #
 
 # 
