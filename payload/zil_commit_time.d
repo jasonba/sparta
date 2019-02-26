@@ -15,8 +15,8 @@
  * 
  * Program       : zil_commit_time.d
  * Author        : Jason.Banham@Nexenta.COM
- * Date          : 2013-02-04 - 2019-02-25
- * Version       : 0.3
+ * Date          : 2013-02-04 - 2019-02-26
+ * Version       : 0.4
  * Usage         : ./zil_commit_time.d
  * Purpose       : Understand time spent in the zil_commit() code path
  * Legal         : Copyright 2013 - 2018 Nexenta Systems, Inc.
@@ -24,6 +24,7 @@
  * History       : 0.01 - Initial version
  *                 0.02 - Finally decided to truncate the data
  *                 0.03 - Now clear instead of trunc due to user request
+ *                 0.04 - Utterly stupid bug fixed - was clearing before printing!
  */
 
 fbt:zfs:zil_commit:entry
@@ -46,7 +47,7 @@ fbt:zfs:zil_commit:return
 tick-5sec
 {
     printf("%Y\n", walltimestamp);
-    clear(@);
     printa(@);
+    clear(@);
 }
 
