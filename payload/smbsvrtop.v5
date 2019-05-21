@@ -174,96 +174,9 @@ dtrace:::BEGIN
 
 /*
  * Filter as needed, based on starts
- *
- * Unfortunately, trying to write this as:
- *	smb:::op-*-start {}
- *	smb:::op-*-done {}
- * fails to compile with this complaint:
- *	dtrace: failed to compile script ...: line NN:
- *	args[ ] may not be referenced because probe description
- *	smb:::op-*-start matches an unstable set of probes
- *
- * Not clear why listing them all is necessary, but that works.
  */
-smb:::op-CheckDirectory-start,
-smb:::op-Close-start,
-smb:::op-CloseAndTreeDisconnect-start,
-smb:::op-ClosePrintFile-start,
-smb:::op-Create-start,
-smb:::op-CreateDirectory-start,
-smb:::op-CreateNew-start,
-smb:::op-CreateTemporary-start,
-smb:::op-Delete-start,
-smb:::op-DeleteDirectory-start,
-smb:::op-Echo-start,
-smb:::op-Find-start,
-smb:::op-FindClose-start,
-smb:::op-FindClose2-start,
-smb:::op-FindUnique-start,
-smb:::op-Flush-start,
-smb:::op-GetPrintQueue-start,
-smb:::op-Invalid-start,
-smb:::op-Ioctl-start,
-smb:::op-LockAndRead-start,
-smb:::op-LockByteRange-start,
-smb:::op-LockingX-start,
-smb:::op-LogoffX-start,
-smb:::op-Negotiate-start,
-smb:::op-NtCancel-start,
-smb:::op-NtCreateX-start,
-smb:::op-NtRename-start,
-smb:::op-NtTransact-start,
-smb:::op-NtTransactCreate-start,
-smb:::op-NtTransactSecondary-start,
-smb:::op-Open-start,
-smb:::op-OpenPrintFile-start,
-smb:::op-OpenX-start,
-smb:::op-ProcessExit-start,
-smb:::op-QueryInformation-start,
-smb:::op-QueryInformation2-start,
-smb:::op-QueryInformationDisk-start,
-smb:::op-Read-start,
-smb:::op-ReadRaw-start,
-smb:::op-ReadX-start,
-smb:::op-Rename-start,
-smb:::op-Search-start,
-smb:::op-Seek-start,
-smb:::op-SessionSetupX-start,
-smb:::op-SetInformation-start,
-smb:::op-SetInformation2-start,
-smb:::op-Transaction-start,
-smb:::op-Transaction2-start,
-smb:::op-Transaction2Secondary-start,
-smb:::op-TransactionSecondary-start,
-smb:::op-TreeConnect-start,
-smb:::op-TreeConnectX-start,
-smb:::op-TreeDisconnect-start,
-smb:::op-UnlockByteRange-start,
-smb:::op-Write-start,
-smb:::op-WriteAndClose-start,
-smb:::op-WriteAndUnlock-start,
-smb:::op-WritePrintFile-start,
-smb:::op-WriteRaw-start,
-smb:::op-WriteX-start,
-smb2:::op-Cancel-start,
-smb2:::op-ChangeNotify-start,
-smb2:::op-Close-start,
-smb2:::op-Create-start,
-smb2:::op-Echo-start,
-smb2:::op-Flush-start,
-smb2:::op-Ioctl-start,
-smb2:::op-Lock-start,
-smb2:::op-Logoff-start,
-smb2:::op-Negotiate-start,
-smb2:::op-OplockBreak-start,
-smb2:::op-QueryDirectory-start,
-smb2:::op-QueryInfo-start,
-smb2:::op-Read-start,
-smb2:::op-SessionSetup-start,
-smb2:::op-SetInfo-start,
-smb2:::op-TreeConnect-start,
-smb2:::op-TreeDisconnect-start,
-smb2:::op-Write-start
+smb:::op-*-start,
+smb2:::op-*-start
 /((OPT_client == 0 || CLIENT == args[0]->ci_remote) &&
   (OPT_share == 0  || SHARE == args[1]->soi_share))/
 { 
