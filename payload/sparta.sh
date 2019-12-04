@@ -3,8 +3,8 @@
 #
 # Program	: sparta.sh
 # Author	: Jason.Banham@Nexenta.COM
-# Date		: 2013-02-04 - 2018-02-26
-# Version	: 0.80
+# Date		: 2013-02-04 - 2019-12-03
+# Version	: 0.84
 # Usage		: sparta.sh [ -h | -help | start | status | stop | tarball ]
 # Purpose	: Gather performance statistics for a NexentaStor appliance
 # Legal		: Copyright 2013, 2014, 2015, 2016, 2017, 2018 and 2019 Nexenta Systems, Inc. 
@@ -113,6 +113,10 @@
 #                        worked in 5.1 onwards.  Created a kmem_reap_100ms_5x.d script with this removed.
 #                 0.79 - Changed trunc() to clear() in zil_commit_time.d as requested by Daniel Borek
 #                 0.80 - Fixed utterly stupid bug in zil_commit_time.d introduced in 0.79
+#                 0.81 - Now extracts some sd state from the kernel
+#                 0.82 - Now collects process information and kernel thread information
+#                 0.83 - Added CPU watcher script which invokes capture script when kernel utilisation exceeds threshold
+#                 0.84 - Added metaslab load script from Engineering
 #
 
 # 
@@ -224,7 +228,7 @@ function help
 #
 function script_status
 {
-    pgrep -fl 'dtrace .* [/perflogs|nfssvrtop|cifssvrtop|iscsisvrtop|metaslab]'
+    pgrep -fl 'dtrace .* [/perflogs|nfssvrtop|cifssvrtop|iscsisvrtop|metaslab|msload_zvol]'
     pgrep -fl 'perflogs/scripts/launchers'
     pgrep -fl $ARCSTAT_PL
     pgrep -fl $LOCKSTAT_SPARTA
@@ -238,6 +242,7 @@ function script_status
     pgrep -fl "$SMBSTAT"
     pgrep -fl "$NICSTAT"
     pgrep -fl "$NFSSTAT $NFSSTAT_OPTS"
+    pgrep -fl "watch_cpu.pl"
 }
 
 
@@ -254,7 +259,7 @@ function script_kill
         ps -fp `cat $STOPPING_FILE`
         exit 0
     fi
-    pkill -f 'dtrace .* [/perflogs|nfssvrtop|cifssvrtop|iscsisvrtop]'
+    pkill -f 'dtrace .* [/perflogs|nfssvrtop|cifssvrtop|iscsisvrtop|metaslab|msload_zvol]'
     pkill -f $ARCSTAT_PL
     pkill -f $LOCKSTAT_SPARTA
     pkill -f "$VMSTAT $VMSTAT_OPTS"
@@ -267,6 +272,7 @@ function script_kill
     pkill -f "$SMBSTAT"
     pkill -f "$NICSTAT"
     pkill -f "$NFSSTAT $NFSSTAT_OPTS"
+    pkill -f "watch_cpu.pl"
     if [ -r $STOPPING_FILE ]; then
         RECORDED_STOP_PID="`cat $STOPPING_FILE`"
         if [ $STOP_PID == $RECORDED_STOP_PID ]; then
@@ -546,27 +552,27 @@ function generate_tarball
     else
         $ECHO "\nCreating that tarball would require `expr $PERFLOG_USAGE / $MEGABYTE`MB of free space in $TARBALL_DIR"
 	$ECHO "and you only have `expr $PERF_DATASET_AVAIL / $MEGABYTE`MB available."
-	$ECHO "\nPlease consider removing old/redundant data in $LOG_DATASET"
-        $ECHO "or you can adjust the location of TARBALL_DIR in the sparta configuration file."
-	$ECHO ""
-	$ECHO "Unable to create that tarball"
-	return 1
-    fi
+		$ECHO "\nPlease consider removing old/redundant data in $LOG_DATASET"
+		$ECHO "or you can adjust the location of TARBALL_DIR in the sparta configuration file."
+		$ECHO ""
+		$ECHO "Unable to create that tarball"
+		return 1
+	    fi
 
-    $ECHO "Creating tarball ... " 
-    $TAR czf - $LOG_DIR | ($PV -p --timer --rate --bytes > ${PERF_TARBALL}.gz)
-#    $TAR cf $PERF_TARBALL $LOG_DIR >> $SPARTA_LOG 2>&1
-#    if [ -r ${PERF_TARBALL}.gz ]; then
-#        mv ${PERF_TARBALL}.gz ${PERF_TARBALL}.gz.$$
-#    fi
-#    $ECHO "done"
-#    $ECHO "Compressing tarball ... \c" 
-#    $GZIP -v $PERF_TARBALL >> $SPARTA_LOG 2>&1
-#    if [ $? -eq 0 ]; then
-#        $ECHO "done"
-#    else
-#    	$ECHO "failed! error encountered compressing the file (will not have .gz suffix)"
-#    fi
+	    $ECHO "Creating tarball ... " 
+	    $TAR czf - $LOG_DIR | ($PV -p --timer --rate --bytes > ${PERF_TARBALL}.gz)
+	#    $TAR cf $PERF_TARBALL $LOG_DIR >> $SPARTA_LOG 2>&1
+	#    if [ -r ${PERF_TARBALL}.gz ]; then
+	#        mv ${PERF_TARBALL}.gz ${PERF_TARBALL}.gz.$$
+	#    fi
+	#    $ECHO "done"
+	#    $ECHO "Compressing tarball ... \c" 
+	#    $GZIP -v $PERF_TARBALL >> $SPARTA_LOG 2>&1
+	#    if [ $? -eq 0 ]; then
+	#        $ECHO "done"
+	#    else
+	#    	$ECHO "failed! error encountered compressing the file (will not have .gz suffix)"
+	#    fi
 
     $ECHO "\nA snapshot of the currently collected data has been collected."
     $ECHO "Please upload ${PERF_TARBALL}.gz to $FTP_SERVER:/upload/<CASE_REF>"
@@ -585,9 +591,9 @@ function zap_logs
 {
     SHIELD_PID="`pgrep -fl \"$SPARTA_SHIELD\" | awk '{print $1}'`"
     if [ "x${SHIELD_PID}" != "x" ]; then
-        $ECHO "Cannot continue, SPARTA is already running and collecting data!"
-        $ECHO "Please consider stopping SPARTA (/perflogs/scripts/sparta.sh stop) before purging historical data\n"
-        exit 0
+	$ECHO "Cannot continue, SPARTA is already running and collecting data!"
+	$ECHO "Please consider stopping SPARTA (/perflogs/scripts/sparta.sh stop) before purging historical data\n"
+	exit 0
     fi
        
     $ECHO "Purging historical data"
@@ -596,7 +602,7 @@ function zap_logs
     $ECHO "Current log space usage: $LOG_USAGE MB"
 
     if [ -d $LOG_DIR/samples ]; then
-        $FIND $LOG_DIR/samples -type f -exec $RM {} + > /dev/null 2>&1
+	$FIND $LOG_DIR/samples -type f -exec $RM {} + > /dev/null 2>&1
     fi
 
     LOG_USAGE="`calc_space $LOG_DIR/samples`"
@@ -611,20 +617,20 @@ function zap_logs
 function prune_logs()
 {
     if [ -d $LOG_DIR/samples ]; then
-        $ECHO "Pruning log files older than $1 days"
-        LOG_USAGE="`calc_space $LOG_DIR/samples`"
-        LOG_USAGE="`expr $LOG_USAGE / $MEGABYTE`" 
-        $ECHO "Current log space usage: $LOG_USAGE MB"
+	$ECHO "Pruning log files older than $1 days"
+	LOG_USAGE="`calc_space $LOG_DIR/samples`"
+	LOG_USAGE="`expr $LOG_USAGE / $MEGABYTE`" 
+	$ECHO "Current log space usage: $LOG_USAGE MB"
     
-        $FIND $LOG_DIR/samples -type f -mtime +${1} -exec $RM {} +
+	$FIND $LOG_DIR/samples -type f -mtime +${1} -exec $RM {} +
     
-        LOG_USAGE="`calc_space $LOG_DIR/samples`"
-        LOG_USAGE="`expr $LOG_USAGE / $MEGABYTE`" 
-        $ECHO "After pruning, log space usage: $LOG_USAGE MB"
+	LOG_USAGE="`calc_space $LOG_DIR/samples`"
+	LOG_USAGE="`expr $LOG_USAGE / $MEGABYTE`" 
+	$ECHO "After pruning, log space usage: $LOG_USAGE MB"
 
-        $ECHO "Done"
+	$ECHO "Done"
     else
-        $ECHO "Could not find $LOG_DIR/samples directory!"
+	$ECHO "Could not find $LOG_DIR/samples directory!"
     fi
 }
 
@@ -637,40 +643,40 @@ subcommand="usage"
 
 while getopts ChIi:NP:Su:vp:? argopt
 do
-        case $argopt in
-        C)      # Enable CIFS scripts
-                TRACE_CIFS="y"
-                ;;
+	case $argopt in
+	C)      # Enable CIFS scripts
+		TRACE_CIFS="y"
+		;;
 
-        I)      # Enable iSCSI scripts
-                TRACE_ISCSI="y"
-                ;;
+	I)      # Enable iSCSI scripts
+		TRACE_ISCSI="y"
+		;;
 
 	i)	# Get prune interval
 		PRUNE_INTERVAL=$OPTARG
 		;;
 
-        N)      # Enable NFS scripts
-                TRACE_NFS="y"
-                ;;
+	N)      # Enable NFS scripts
+		TRACE_NFS="y"
+		;;
 
 	P)	# Switch on the relevant protocols
- 		# and override any previous settings
+		# and override any previous settings
 		TRACE_CIFS="n"
 		TRACE_ISCSI="n"
 		TRACE_NFS="n"
 		TRACE_STMF="n"
 
-    		IFS=", 	"
+		IFS=", 	"
 		for protocol in $OPTARG
 		do
 		    case $protocol in
 			cifs  ) TRACE_CIFS="y"
-			        ;;
+				;;
 			iscsi ) TRACE_ISCSI="y"
 				;;
 			nfs   ) TRACE_NFS="y"
-			        ;;
+				;;
 			stmf  ) TRACE_STMF="y"
 				;;
 			all   ) TRACE_CIFS="y"
@@ -693,17 +699,17 @@ do
 		TRACE_STMF="y"
 		;;
 
-        p)      ZPOOL_NAME=$OPTARG
-                ;;
+	p)      ZPOOL_NAME=$OPTARG
+		;;
 	u)	UPDATE_OPT=$OPTARG
 		;;
-        v)      $ECHO "SPARTA version $SPARTA_VER"
-                exit 0
-                ;;
-        h|?)    help
-                exit 0
+	v)      $ECHO "SPARTA version $SPARTA_VER"
+		exit 0
+		;;
+	h|?)    help
+		exit 0
 
-        esac
+	esac
 done
 
 shift $((OPTIND-1))
@@ -714,11 +720,11 @@ subcommand="$1"
 #
 case "$subcommand" in
     prune )
-        is_integer $PRUNE_INTERVAL
-        if [ $? -ne 0 ]; then
-            $ECHO "Looks like you didn't specify an integer as the prune interval, must exit."
-            exit 0
-        fi
+	is_integer $PRUNE_INTERVAL
+	if [ $? -ne 0 ]; then
+	    $ECHO "Looks like you didn't specify an integer as the prune interval, must exit."
+	    exit 0
+	fi
 
 	prune_logs $PRUNE_INTERVAL
 	exit 0
@@ -729,25 +735,25 @@ case "$subcommand" in
 	;;
     space )
 	SPACE_USED=`calc_space $LOG_DIR`
-        echo "You are using `expr $SPACE_USED / $MEGABYTE` MB (uncompressed) in the $LOG_DIR directory for performance data." 
+	echo "You are using `expr $SPACE_USED / $MEGABYTE` MB (uncompressed) in the $LOG_DIR directory for performance data." 
 	exit 0
 	;;
     start )
 	# Break out of this case statement and into the main body of code
 	;;
     stop )
-        $ECHO "Stopping dtrace scripts ..."
-    	print_to_log "### Stopping SPARTA" $SPARTA_LOG $FF_DATE
+	$ECHO "Stopping dtrace scripts ..."
+	print_to_log "### Stopping SPARTA" $SPARTA_LOG $FF_DATE
 	script_kill
 	$ECHO "quiescing ..."
 	sleep 5
 	$ECHO "Number of dtrace scripts still active: \c"
 	script_status | wc -l
-        exit 0
+	exit 0
 	;;
     status )
-        $ECHO "Monitoring zpool : $ZPOOL_NAME"
-        $ECHO "Checking status of dtrace scripts ..."
+	$ECHO "Monitoring zpool : $ZPOOL_NAME"
+	$ECHO "Checking status of dtrace scripts ..."
 	script_status
 	$ECHO ""
 	exit 0
@@ -856,7 +862,7 @@ function do_log
     print_to_log "$MONITOR_NAME data gathering" $SPARTA_LOG $FF_DATE
 }
 
-### CPU/load specific section
+## CPU/load specific section
 
 #
 # The following functions, by their name, describe what commands they're running
@@ -869,7 +875,7 @@ function launch_vmstat
 {
     $PGREP -fl "$VMSTAT $VMSTAT_OPTS" > /dev/null 2>&1
     if [ $? -ne 0 ]; then
-        $VMSTAT $VMSTAT_OPTS | $ROTATELOGS $LOG_DIR/samples/${1}.%Y-%m-%d_%H_%M $LOG_ROTATE_TIME 2>&1 &
+	$VMSTAT $VMSTAT_OPTS | $ROTATELOGS $LOG_DIR/samples/${1}.%Y-%m-%d_%H_%M $LOG_ROTATE_TIME 2>&1 &
     fi
 }
 
@@ -877,7 +883,7 @@ function launch_mpstat
 {
     $PGREP -fl "$MPSTAT $MPSTAT_OPTS" > /dev/null 2>&1
     if [ $? -ne 0 ]; then
-        $MPSTAT $MPSTAT_OPTS | $ROTATELOGS $LOG_DIR/samples/${1}.%Y-%m-%d_%H_%M $LOG_ROTATE_TIME 2>&1 &
+	$MPSTAT $MPSTAT_OPTS | $ROTATELOGS $LOG_DIR/samples/${1}.%Y-%m-%d_%H_%M $LOG_ROTATE_TIME 2>&1 &
     fi
 }
 
@@ -885,7 +891,7 @@ function launch_prstat
 {
     $PGREP -fl "$PRSTAT $PRSTAT_OPTS" > /dev/null 2>&1
     if [ $? -ne 0 ]; then
-        $PRSTAT $PRSTAT_OPTS | $ROTATELOGS $LOG_DIR/samples/${1}.%Y-%m-%d_%H_%M $LOG_ROTATE_TIME 2>&1 &
+	$PRSTAT $PRSTAT_OPTS | $ROTATELOGS $LOG_DIR/samples/${1}.%Y-%m-%d_%H_%M $LOG_ROTATE_TIME 2>&1 &
     fi
 }
 
@@ -904,6 +910,11 @@ function gather_interrupts
     $ECHO "::interrupts -d" | $MDB -k > $LOG_DIR/samples/${1} 2>&1
 }
 
+function launch_watch_cpu
+{
+    print_to_log "Kicking off background kernel CPU utilisation monitor @ $WATCH_CPU_THRESHOLD %" $SPARTA_LOG $FF_DATE
+    $NOHUP $($MPSTAT 2 | $LOG_SCRIPTS/watch_cpu.pl -p $WATCH_CPU_THRESHOLD -) > /dev/null 2>&1 &
+}
 
 ### Kernel specific tool section
 
@@ -916,17 +927,17 @@ function obsolete_launch_hotkernel
 {
     for x in {1..3}
     do
-        print_to_log "Sample $x" $LOG_DIR/samples/${1} $FF_DATE_SEP
-        $HOTKERNEL >> $LOG_DIR/samples/$1 2>&1 &
-        $ECHO ". \c"
-        let count=0
-        while [ $count -lt $HOTKERNEL_SAMPLE_TIME ]; do
-            cursor_update
-            sleep 1
-            let count=$count+1
-        done
-        cursor_blank
-        cursor_pause 5
+	print_to_log "Sample $x" $LOG_DIR/samples/${1} $FF_DATE_SEP
+	$HOTKERNEL >> $LOG_DIR/samples/$1 2>&1 &
+	$ECHO ". \c"
+	let count=0
+	while [ $count -lt $HOTKERNEL_SAMPLE_TIME ]; do
+	    cursor_update
+	    sleep 1
+	    let count=$count+1
+	done
+	cursor_blank
+	cursor_pause 5
     done
 }
 
@@ -934,7 +945,7 @@ function launch_lockstat
 {
     $PGREP -fl "$LOCKSTAT_SPARTA" > /dev/null 2>&1
     if [ $? -ne 0 ]; then
-        $LOCKSTAT_SPARTA >> $SPARTA_LOG &
+	$LOCKSTAT_SPARTA >> $SPARTA_LOG &
     fi
 }
 
@@ -948,10 +959,10 @@ function launch_kmem_reap
 {
     KMEM_REAP_PID="`pgrep -fl $KMEM_REAP | awk '{print $1}'`"
     if [ "x$KMEM_REAP_PID" == "x" ]; then
-        $KMEM_REAP 2>&1 | $ROTATELOGS $LOG_DIR/samples/${1}.%Y-%m-%d_%H_%M $LOG_ROTATE_TIME 2>&1 &
-        print_to_log "  Started kmem_reap monitoring" $SPARTA_LOG $FF_DATE
+	$KMEM_REAP 2>&1 | $ROTATELOGS $LOG_DIR/samples/${1}.%Y-%m-%d_%H_%M $LOG_ROTATE_TIME 2>&1 &
+	print_to_log "  Started kmem_reap monitoring" $SPARTA_LOG $FF_DATE
     else
-        print_to_log "  kmem_reap already running as PID $KMEM_REAP_PID" $SPARTA_LOG $FF_DATE
+	print_to_log "  kmem_reap already running as PID $KMEM_REAP_PID" $SPARTA_LOG $FF_DATE
     fi
 }
 
@@ -960,9 +971,17 @@ function gather_kernel_mdb
     print_to_log "Collecting kernel tunables" $SPARTA_LOG $FF_DATE
     for tunable in $KERNEL_TUNABLE_LIST
     do
-        $ECHO "${tunable} : \c" > $LOG_DIR/mdb/mdb.${tunable}
-        $ECHO "${tunable}::print -d" | $MDB -k >> $LOG_DIR/mdb/mdb.${tunable} 2>&1
+	$ECHO "${tunable} : \c" > $LOG_DIR/mdb/mdb.${tunable}
+	$ECHO "${tunable}::print -d" | $MDB -k >> $LOG_DIR/mdb/mdb.${tunable} 2>&1
     done
+}
+
+function gather_kernel_sdstate
+{
+    print_to_log "Collecting in kernel sd state" $SPARTA_LOG $FF_DATE
+    $MDB -ke "::walk sd_state | ::grep '.!=0' | ::print -d struct sd_lun un_throttle un_saved_throttle un_phy_blocksize" >> $LOG_DIR/mdb/mdb.sd.throttle
+    $MDB -ke "::walk sd_state | ::grep '.!=0' | ::print struct sd_lun un_sd | ::print struct scsi_device sd_dev | ::devinfo" >> $LOG_DIR/mdb/mdb.sd.devinfo
+    $MDB -ke "::walk sd_state | ::grep '.!=0' | ::print struct sd_lun un_sd | ::print struct scsi_device sd_inq | ::print struct scsi_inquiry inq_vid inq_pid inq_serial" >> $LOG_DIR/mdb/mdb.sd.inquiry
 }
 
 function gather_flame_stacks
@@ -978,9 +997,9 @@ function obsolete_gather_flame_stacks
     $ECHO ". \c"
     let count=0
     while [ $count -lt $FLAME_STACKS_SAMPLE_TIME ]; do
-        cursor_update
-        sleep 1
-        let count=$count+1
+	cursor_update
+	sleep 1
+	let count=$count+1
     done
     cursor_blank
 
@@ -989,9 +1008,9 @@ function obsolete_gather_flame_stacks
     $ECHO ". \c"
     let count=0
     while [ $count -lt $FLAME_STACKS_SAMPLE_TIME ]; do
-        cursor_update
-        sleep 1
-        let count=$count+1
+	cursor_update
+	sleep 1
+	let count=$count+1
     done
     cursor_blank
 }
@@ -1007,11 +1026,11 @@ function obsolete_gather_kmastat
     $ECHO ". \c"
     let count=0
     while [ $count -lt $KMASTAT_SAMPLE_COUNT ]; do
-        print_to_log "Sample $count" $LOG_DIR/samples/kmastat.out $FF_DATE_SEP
+	print_to_log "Sample $count" $LOG_DIR/samples/kmastat.out $FF_DATE_SEP
 	$ECHO "::kmastat -g" | $MDB -k >> $LOG_DIR/samples/kmastat.out 2>&1
-        cursor_update
-        sleep 1
-        let count=$count+1
+	cursor_update
+	sleep 1
+	let count=$count+1
     done
     cursor_blank
 }
@@ -1034,6 +1053,18 @@ function obsolete_gather_kmemslabs
         let count=$count+1
     done
     cursor_blank
+}
+
+function gather_threads_and_stacks
+{
+    print_to_log "Collecting thread and stacks information" $SPARTA_LOG $FF_DATE
+    $DATE +%Y-%m-%d_%H:%M:%S > $LOG_DIR/samples/threadlist.out
+    $ECHO "-------------------" >> $LOG_DIR/samples/threadlist.out
+    $MDB -ke "$THREADLIST_CMD" >> $LOG_DIR/samples/threadlist.out
+
+    $DATE +%Y-%m-%d_%H:%M:%S > $LOG_DIR/samples/stacks.out
+    $ECHO "-------------------" >> $LOG_DIR/samples/stacks.out
+    $MDB -ke "$STACKS_CMD" >> $LOG_DIR/samples/stacks.out
 }
 
 ### Network specific tool section
@@ -1163,6 +1194,17 @@ function launch_metaslab
         fi
     done
     unset IFS
+}
+
+function launch_msload
+{
+    MSLOAD_PID="$(pgrep -fl $MSLOAD | awk '{print $1}')"
+    if [ "x$MSLOAD_PID" == "x" ]; then
+        $MSLOAD $MSLOAD_TIME | $ROTATELOGS $LOG_DIR/samples/msload.out.%Y-%m-%d_%H_%M $LOG_ROTATE_TIME 2>&1 &
+        print_to_log "  Started msload monitoring" $SPARTA_LOG $FF_DATE
+    else
+        print_to_log "  msload.d already running as PID $MSLOAD_PID" $SPARTA_LOG $FF_DATE
+    fi
 }
 
 function launch_arc_adjust
@@ -1376,6 +1418,17 @@ function gather_uptime
     $UPTIME > $LOG_DIR/samples/uptime.out
 }
 
+function gather_process_data
+{
+    print_to_log "  process information" $SPARTA_LOG $FF_DATE
+    $DATE +%Y-%m-%d_%H:%M:%S > $LOG_DIR/samples/ps.out
+    $ECHO "-------------------" >> $LOG_DIR/samples/ps.out
+    $PS $PS_OPTS >> $LOG_DIR/samples/ps.out
+
+    $DATE +%Y-%m-%d_%H:%M:%S > $LOG_DIR/samples/ptree.out
+    $ECHO "-------------------" >> $LOG_DIR/samples/ptree.out
+    $PTREE $PTREE_OPTS >> $LOG_DIR/samples/ptree.out
+}
 
 ## Disk specific functions defined here
 
@@ -1714,6 +1767,14 @@ if [ ! -d $LOG_DIR/samples ]; then
     if [ $? -ne 0 ]; then
 	$ECHO "Unable to create $LOG_DIR/samples directory to capture statistics"
 	exit 1
+    fi
+fi
+
+if [ ! -d $LOG_DIR/samples/watch_cpu ]; then
+    $MKDIR -p $LOG_DIR/samples/watch_cpu
+    if [ $? -ne 0 ]; then
+        $ECHO "Unable to create $LOG_DIR/samples/watch_cpu directory for cpu utilisation monitor"
+        exit 1
     fi
 fi
 

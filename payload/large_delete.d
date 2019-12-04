@@ -13,7 +13,8 @@
 
 BEGIN
 {
-    printf("Tracing large delete operations\n\n");
+    self->threshold = $1;
+    printf("Tracing large delete operations > %d ms\n\n", self->threshold);
 }
 
 fbt:zfs:dmu_free_long_range_impl:entry 
@@ -26,7 +27,7 @@ fbt:zfs:dmu_free_long_range_impl:entry
 }
 
 fbt:zfs:dmu_free_long_range_impl:return
-/self->start && self->dnode->dn_object/
+/self->start && self->dnode->dn_object && (((timestamp - self->start) / 1000000) >= self->threshold)/
 {
     printf("%Y : dsl_dir name = %s dnode = %d : elapsed time = %d ms\n", walltimestamp, stringof(self->objset->os_dsl_dataset->ds_dir->dd_myname), self->dnode->dn_object, ((timestamp - self->start)/1000000));
     self->start = 0; 
