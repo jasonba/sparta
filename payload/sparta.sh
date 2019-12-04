@@ -3,8 +3,8 @@
 #
 # Program	: sparta.sh
 # Author	: Jason.Banham@Nexenta.COM
-# Date		: 2013-02-04 - 2019-12-03
-# Version	: 0.84
+# Date		: 2013-02-04 - 2019-12-04
+# Version	: 0.85
 # Usage		: sparta.sh [ -h | -help | start | status | stop | tarball ]
 # Purpose	: Gather performance statistics for a NexentaStor appliance
 # Legal		: Copyright 2013, 2014, 2015, 2016, 2017, 2018 and 2019 Nexenta Systems, Inc. 
@@ -117,6 +117,7 @@
 #                 0.82 - Now collects process information and kernel thread information
 #                 0.83 - Added CPU watcher script which invokes capture script when kernel utilisation exceeds threshold
 #                 0.84 - Added metaslab load script from Engineering
+#                 0.85 - Re-enabled the zpool iostat data collection (for a 5 minute sample) as requested by Misha
 #
 
 # 
