@@ -11,7 +11,7 @@ Installation
 In the directory where this package has been unpacked, run the
 installer.sh script to install.  This will create a /perflogs directory
 and copy the scripts and utilities to that directory.  If there is
-insufficient space in the syspool you will not be able to continue
+insufficient space in the syspool/rpool you will not be able to continue
 (at the time of writing this is 1GB).
 
 # ./installer.sh
@@ -26,11 +26,14 @@ The sparta.sh script takes the following arguments but is typically
 invoked using 'sparta.sh <command>' where the command may be one
 of the following:
 
-   sparta.sh start	 : Starts the data collection
-   sparta.sh stop 	 : Stops any active dtrace scripts
-   sparta.sh status	 : Displays which dtrace scripts are running
-   sparta.sh tarball	 : Generates a tarball of /perflogs (can be quite LARGE)
-   sparta.sh version     : Displays the version of SPARTA
+   start	  : Starts the data collection
+   stop 	  : Stops any active dtrace scripts
+   status	  : Displays which dtrace scripts are running
+   tarball	  : Generates a tarball of /perflogs (can be quite LARGE)
+   version        : Displays the version of SPARTA
+   space          : Advises how much space the performance data is taking
+   prune -i <val> : Prune data older than <val> days
+   zap            : remove all historical sample data in /perflogs
 
 There are several optional switches that can be supplied to enable
 NFS, CIFS or iSCSI monitoring thus:
@@ -134,6 +137,30 @@ Alternatively you can run:
 and this will generate a tarball.
 Once a tarball has been generated that captures a performance problem, please
 upload this to the Nexenta FTP server.
+
+The URL for this is:
+
+ftp://logcollector.nexenta.com/nstor/<UUID>/<CASE_NUM>/<filename>
+
+Where <UUID> can be determined using:
+
+NexentaStor 4.x
+---------------
+nmc@hostname:/$ show appliance license
+
+And using the value return in the 'Machine Signature' section
+
+NexentaStor 5.x
+---------------
+CLI@node> config get -O basic value system.guid | nawk '{print $3}'
+
+And using the value returned by this command.
+
+<CASE_NUM> is the case reference number in the support portal when you opened
+the ticket for the problem you're experiencing.
+
+<filename> is the name of the tarball that is generated.
+
 
 
 

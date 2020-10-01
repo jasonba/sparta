@@ -4,7 +4,7 @@
 # Program	: sparta.sh
 # Author	: Jason.Banham@Nexenta.COM
 # Date		: 2013-02-04 - 2019-12-04
-# Version	: 0.85
+# Version	: 0.88
 # Usage		: sparta.sh [ -h | -help | start | status | stop | tarball ]
 # Purpose	: Gather performance statistics for a NexentaStor appliance
 # Legal		: Copyright 2013, 2014, 2015, 2016, 2017, 2018 and 2019 Nexenta Systems, Inc. 
@@ -118,6 +118,12 @@
 #                 0.83 - Added CPU watcher script which invokes capture script when kernel utilisation exceeds threshold
 #                 0.84 - Added metaslab load script from Engineering
 #                 0.85 - Re-enabled the zpool iostat data collection (for a 5 minute sample) as requested by Misha
+#		  0.86 - Added further ZIL probing scripts, to dig deeper into ZIL behaviour.
+#                        Modified nfsio_handsoff.d to truncate data to top 10 samples, as this just wastes cycles and
+#                        eats disk space.
+#                 0.87 - Added the Illumos txg_full.d script to give deeper insight into ZFS TXG processing
+#                 0.88 - Disabled powertop collection in sparta.config.  Whilst this works on a variety of lab machines
+#                        it turns out in the customer world, powertop spews kstat errors an awful lot.
 #
 
 # 
@@ -1180,6 +1186,23 @@ function launch_openzfs_txg_monitor
     unset IFS
 }
 
+function launch_openzfs_txg_full
+{
+    IFS=", 	"
+    for poolname in $ZPOOL_NAME
+    do
+        PGREP_STRING="$TXG_FULL $poolname"
+        OPENZFS_TXG_FULL_PID="`pgrep -fl "$PGREP_STRING" | awk '{print $1}'`"
+        if [ "x$OPENZFS_TXG_FULL_PID" == "x" ]; then
+            $OPENZFS_TXG_FULL $poolname | $ROTATELOGS $LOG_DIR/samples/zfstxg_full_${poolname}.out.%Y-%m-%d_%H_%M $LOG_ROTATE_TIME 2>&1 &
+            print_to_log "  Started OpenZFS TXG full on $poolname" $SPARTA_LOG $FF_DATE
+        else
+            print_to_log "  OpenZFS TXG full already running for zpool $poolname as PID $OPENZFS_TXG_FULL_PID" $SPARTA_LOG $FF_DATE
+        fi
+    done
+    unset IFS
+}
+
 function launch_metaslab
 {
     IFS=", 	"
@@ -1285,6 +1308,44 @@ function launch_zil_commit
         print_to_log "  zil commit time script already running as PID $ZIL_COMMIT_TIME_PID" $SPARTA_LOG $FF_DATE
     fi
 }
+
+#
+# This is the partially adapted script from Matt Ahrens
+#
+function launch_zil_commit_watch
+{
+    ZIL_COMMIT_WATCH_PID="`pgrep -fl $ZIL_COMMIT_WATCH | awk '{print $1}'`"
+    if [ "x$ZIL_COMMIT_WATCH_PID" == "x" ]; then
+        $ZIL_COMMIT_WATCH | $ROTATELOGS $LOG_DIR/samples/zil_commit_watch.out.%Y-%m-%d_%H_%M $LOG_ROTATE_TIME 2>&1 &
+        print_to_log "  Started zil commit watch sampling" $SPARTA_LOG $FF_DATE
+    else
+        print_to_log "  zil commit watch script already running as PID $ZIL_COMMIT_WATCH_PID" $SPARTA_LOG $FF_DATE
+    fi
+}
+
+function launch_zil_use_slog
+{
+    ZIL_USE_SLOG_PID="$(pgrep -fl $ZIL_USE_SLOG | awk '{print $1}')"
+    if [ "x$ZIL_USE_SLOG_PID" == "x" ]; then
+        $ZIL_USE_SLOG | $ROTATELOGS $LOG_DIR/samples/zil_use_slog.out.%Y-%m-%d_%H_%M $LOG_ROTATE_TIME 2>&1 &
+        print_to_log "  Started zil_use_slog sampling" $SPARTA_LOG $FF_DATE
+    else
+        print_to_log "  zil_use_slog script already running as PID $ZIL_USE_SLOG_PID" $SPARTA_LOG $FF_DATE
+    fi
+} 
+
+function launch_zil_lwb_write
+{
+    ZIL_LWB_WRITE_PID="$(pgrep -fl $ZIL_LWB_WRITE | awk '{print $1}')"
+    if [ "x$ZIL_LWB_WRITE_PID" == "x" ]; then
+        $ZIL_LWB_WRITE | $ROTATELOGS $LOG_DIR/samples/zil_lwb_write.out.%Y-%m-%d_%H_%M $LOG_ROTATE_TIME 2>&1 &
+        print_to_log "  Started zil_lwb_write sampling" $SPARTA_LOG $FF_DATE
+    else
+        print_to_log "  zil_lwb_write script already running as PID $ZIL_LWB_WRITE_PID" $SPARTA_LOG $FF_DATE
+    fi
+} 
+
+
 
 function launch_zil_stat
 {

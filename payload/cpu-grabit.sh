@@ -3,12 +3,14 @@
 #
 # Name          : cpu-grabit.sh
 # Author        : Jason Banham
-# Date          : 28th November 2019
+# Date          : 28th November 2019 - 6th June 2020
 # Usage         : cpu-grabit.sh
 # Purpose       : Collect additional data when kernel CPU usage crosses a threshold
-# Version       : 0.02
+# Version       : 0.04
 # History       : 0.01 - Initial version
 #                 0.02 - More robust with more data collection
+#                 0.03 - powertop can be quite chatty with errors, so directing to /dev/null
+#                 0.04 - Added lockstat data sampling so we can see lock latency
 #
 
 #
@@ -39,8 +41,19 @@ LOG_LAUNCHERS=${LOG_SCRIPTS}/launchers
 LOG_BIN=$LOG_DIR/bin
 CPU_LOCK_FILE=/tmp/.cpu-grabit.lck.${CPU}
 
+. $LOG_CONFIG/sparta.config
+
 if [ ! -d ${LOG_DIR}/samples/watch_cpu ]; then
     mkdir -p ${LOG_DIR}/samples/watch_cpu
+fi
+
+LOCAL_POWERTOP_ENABLE="true"
+#
+# Check to see if we have the necessary kstat to run powertop
+#
+kstat -m acpi_drv -i 0 -n "battery BIF0" > /dev/null
+if [ $? -ne 0 ]; then
+    LOCAL_POWERTOP_ENABLE="false"
 fi
 
 #
@@ -85,11 +98,17 @@ echo "$TIMESTAMP" >> $LOG_DIR/samples/watch_cpu/intrstat.out.$LOG_DATESTAMP
 intrstat 1 30 >> $LOG_DIR/samples/watch_cpu/intrstat.out.$LOG_DATESTAMP &
 
 #
-# powertop doesn't work on NS4.x - it dumps core
+# powertop has a tendency to dump core on 4.x so don't run there.
+# Also whilst lab testing has shown it works, customer experience shows powertop runs into
+# kstat and battery problems, so it is now disabled by default
 #
-if [ $NEXENTASTOR_MAJ_VER -ge 5 ]; then
-    echo "$(date "+%Y-%m-%d_%H:%M:%S") Grabbing powertop" >> $LOG_DIR/sparta.log
-    powertop -c $CPU -d 5 -t 1 >> $LOG_DIR/samples/watch_cpu/powertop.out.$LOG_DATESTAMP &
+if [ $ENABLE_POWERTOP -eq 1 ]; then
+    if [ $NEXENTASTOR_MAJ_VER -ge 5 ]; then
+        if [ "$LOCAL_POWERTOP_ENABLE" == "true" ]; then
+           echo "$(date "+%Y-%m-%d_%H:%M:%S") Grabbing powertop" >> $LOG_DIR/sparta.log
+           powertop -c $CPU -d 5 -t 1 >> $LOG_DIR/samples/watch_cpu/powertop.out.$LOG_DATESTAMP 2> /dev/null &
+        fi
+    fi
 fi
 
 #
@@ -103,6 +122,12 @@ $LOG_SCRIPTS/busy_cpus.d >> $LOG_DIR/samples/watch_cpu/busy_cpus.out.$LOG_DATEST
 #
 echo "$(date "+%Y-%m-%d_%H:%M:%S") Grabbing kernel flame graph" >> $LOG_DIR/sparta.log
 $LOG_SCRIPTS/flame_stacks.sh -k >> $LOG_DIR/samples/watch_cpu/flame_kernel_stacks.out.$FLAME_TIMESTAMP 
+
+#
+# Grab some lockstat data
+#
+echo "$(date "+%Y-%m-%d_%H:%M:%S") Grabbing lockstat data" >> $LOG_DIR/sparta.log
+$LOG_SCRIPTS/lockstat_sparta_one.sh &
 
 #
 # Tidy up after ourselves

@@ -10,6 +10,7 @@
  * Purpose : Give insight into STMF task queue thread scaling/management
  * Usage   : stmf_threads.d
  * History : 0.01 - Initial version
+ *           0.02 - Redundant since NexentaStor 5.2
  */
 
 fbt:stmf:stmf_worker_mgmt:entry

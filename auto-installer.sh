@@ -4,7 +4,7 @@
 # Program	: auto-installer.sh
 # Author	: Jason Banham
 # Date		: 2013-11-04 : 2019-12-02
-# Version	: 0.14
+# Version	: 0.16
 # Usage		: auto-installer.sh <tarball>
 # Purpose	: Companion script to SPARTA for auto-installing a new sparta.tar.gz file
 # History	: 0.01 - Initial version, based on the installer.sh script
@@ -21,6 +21,8 @@
 #		  0.12 - Fixed stupid bug where we hadn't defined what OS_MAJOR was, thus breaking installs
 #                 0.13 - Modified to install the zil_stat script for NexentaStor 5.2 onwards
 #                 0.14 - Added more CPU data collection scripts
+#                 0.15 - Added some additional ZIL dtrace scripts
+#                 0.16 - Created lockstat_sparta_one.sh and added this to the cpu-grabit.sh script
 #
 
 #
@@ -82,7 +84,7 @@ SPARTA_TEMPLATE=$LOG_CONFIG/sparta.config.template
 #
 # Scripts and files to install
 #
-SCRIPTS="arcstat.pl arc_adjust.v2.d arc_adjust_ns4.v2.d arc_evict.d busy_cpus.d cifssvrtop cifssvrtop.v4 cpu-grabit.sh delay_mintime.d delayed_writes.d dirty.d dnlc_lookups.d duration.d flame_stacks.sh fsstat.sh iscsisvrtop kmem_reap_100ms.d kmem_reap_100ms_ns.d kmem_reap_100ms_5x.d large_delete.d txg_monitor.v3.d hotkernel.priv lockstat_sparta.sh metaslab.sh msload.d msload_zvol.d nfsio.d nfssrvutil.d nfssvrtop nfsrwtime.d rwlatency.d sbd_zvol_unmap.d sparta.sh sparta_shield.sh stmf_task_time.d tcp_input.d zil_commit_time.d zil_stat.d openzfs_txg.d arc_meta.sh cifs_taskq_watch.sh cifs_threads.sh nfsio_onehost.d arc_adjust_ns5.d stmf_sbd_unmap.d nicstat watch_cpu.pl zil_stat_520.d"
+SCRIPTS="arcstat.pl arc_adjust.v2.d arc_adjust_ns4.v2.d arc_evict.d busy_cpus.d cifssvrtop cifssvrtop.v4 cpu-grabit.sh delay_mintime.d delayed_writes.d dirty.d dnlc_lookups.d duration.d flame_stacks.sh fsstat.sh iscsisvrtop kmem_reap_100ms.d kmem_reap_100ms_ns.d kmem_reap_100ms_5x.d large_delete.d txg_monitor.v3.d hotkernel.priv lockstat_sparta.sh lockstat_sparta_one.sh metaslab.sh msload.d msload_zvol.d nfsio.d nfssrvutil.d nfssvrtop nfsrwtime.d rwlatency.d sbd_zvol_unmap.d sparta.sh sparta_shield.sh stmf_task_time.d tcp_input.d zil_commit_time.d zil_stat.d openzfs_txg.d arc_meta.sh cifs_taskq_watch.sh cifs_threads.sh nfsio_onehost.d arc_adjust_ns5.d stmf_sbd_unmap.d nicstat use_slog_agg_debug.d watch_cpu.pl zil_lwb_write_start.d zil_commit_watch.d zil_commit_writer.d zil_stat_520.d"
 BINARIES="rotatelogs nsver-check.pl"
 CONFIG_FILES="sparta.config"
 README="README"

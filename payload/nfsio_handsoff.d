@@ -34,15 +34,25 @@ nfsv4:::op-write-done
         @writebs[args[1]->noi_curpath] = avg(args[2]->count);
 }
 
+/*
+ * The data collected here is usually massive, leading to pointless data for a lot of samples
+ * Truncate down to the top 10 for a more manageable, useful output
+ */
 tick-10sec
 {
+        trunc(@readbytes, 10);
+        trunc(@readiops, 10);
+        trunc(@readbs, 10);
+        trunc(@writebytes, 10);
+        trunc(@writeiops, 10);
+        trunc(@writebs, 10);
         printf("%Y", walltimestamp);
         printf("\n%12s %12s %12s %12s %12s %12s %s\n", "Rbytes", "Rops", "Rbs", "Wbytes", "WOps", "Wbs", "Pathname");
         printa("%@12d %@12d %@12d %@12d %@12d %@12d %s\n", @readbytes, @readiops, @readbs, @writebytes, @writeiops, @writebs);
-        trunc(@readbytes);
-        trunc(@readiops);
-        trunc(@readbs);
-        trunc(@writebytes);
-        trunc(@writeiops);
-        trunc(@writebs);
+        clear(@readbytes);
+        clear(@readiops);
+        clear(@readbs);
+        clear(@writebytes);
+        clear(@writeiops);
+        clear(@writebs);
 }
