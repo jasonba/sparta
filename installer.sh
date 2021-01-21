@@ -3,8 +3,8 @@
 #
 # Program	: installer.sh
 # Author	: Jason Banham
-# Date		: 2013-01-04 : 2019-12-02
-# Version	: 0.27
+# Date		: 2013-01-04 : 2021-01-15
+# Version	: 0.28
 # Usage		: installer.sh [<zpool name>]
 # Purpose	: Gather performance statistics for a NexentaStor appliance
 # History	: 0.01 - Initial version
@@ -37,6 +37,8 @@
 #                 0.25 - Added more CPU data collection scripts
 #                 0.26 - Added some additional ZIL dtrace scripts
 #                 0.27 - Created lockstat_sparta_one.sh and added this to the cpu-grabit.sh script
+#                 0.28 - Fixed the service/protocol selection input as this did not work for multiple protocols
+#                        On a side note, I really need to merge iSCSI and STMF as it's just confusing to customers
 #
 
 #
@@ -199,18 +201,29 @@ TRACE_CIFS=n
 TRACE_ISCSI=n
 TRACE_STMF=n
 
-case $SERVICE_ANS in
-    n ) TRACE_NFS=y
- 	;;
-    c ) TRACE_CIFS=y
-	;;
-    i ) TRACE_ISCSI=y
-	;;
-    s ) TRACE_STMF=y
-	;;
-    * ) SERVICE_SED_STRING="willrobinson"
-	;;
-esac
+IFS=", 	"
+$ECHO "Service(s) selected: \c"
+for service in $SERVICE_ANS
+do
+    case $service in
+        n ) TRACE_NFS=y
+            $ECHO "NFS \c"
+ 	    ;;
+        c ) TRACE_CIFS=y
+            $ECHO "CIFS \c"
+	    ;;
+        i ) TRACE_ISCSI=y
+            $ECHO "iSCSI \c"
+	    ;;
+        s ) TRACE_STMF=y
+            $ECHO "STMF \c"
+	    ;;
+        * ) SERVICE_SED_STRING="willrobinson"
+	    ;;
+    esac
+done
+unset IFS
+$ECHO ""
 
 $ECHO "Installing scripts ..."
 

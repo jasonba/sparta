@@ -3,11 +3,11 @@
 #
 # Program	: sparta.sh
 # Author	: Jason.Banham@Nexenta.COM
-# Date		: 2013-02-04 - 2019-12-04
-# Version	: 0.88
+# Date		: 2013-02-04 - 2020-11-12
+# Version	: 0.89
 # Usage		: sparta.sh [ -h | -help | start | status | stop | tarball ]
 # Purpose	: Gather performance statistics for a NexentaStor appliance
-# Legal		: Copyright 2013, 2014, 2015, 2016, 2017, 2018 and 2019 Nexenta Systems, Inc. 
+# Legal		: Copyright 2013, 2014, 2015, 2016, 2017, 2018, 2019 and 2020 Nexenta Systems, Inc. 
 #
 # History	: 0.01 - Initial version
 #		  0.02 - Added DNLC lookup and prstat functions
@@ -124,6 +124,7 @@
 #                 0.87 - Added the Illumos txg_full.d script to give deeper insight into ZFS TXG processing
 #                 0.88 - Disabled powertop collection in sparta.config.  Whilst this works on a variety of lab machines
 #                        it turns out in the customer world, powertop spews kstat errors an awful lot.
+#                 0.89 - Added a feature to allow SPARTA to scheduled to start or stop at specific times
 #
 
 # 
@@ -167,7 +168,7 @@ fi
 #
 function usage
 {
-    $ECHO "Usage: `basename $0` [-h] [-i <days>]  [-C|-I|-N|-S] [-p zpoolname] -u [ yes | no ] [-P {protocol,protocol... | all | none} ] { start | stop | status | tarball | version | space | prune | zap }\n"
+    $ECHO "Usage: `basename $0` [-h] [-b <begin_time>] [-e <end_time>] [-i <days>]  [-C|-I|-N|-S] [-p zpoolname] -u [ yes | no ] [-P {protocol,protocol... | all | none} ] { start | stop | status | tarball | version | space | prune | zap }\n"
 }
 
 #
@@ -198,6 +199,8 @@ function help
     $ECHO "  -I              : Enable iSCSI data collection (in addition to existing protocols)"
     $ECHO "  -N              : Enable NFS data collection (in addition to existing protocols)"
     $ECHO "  -S              : Enable STMF (COMSTAR) data collection (in addition to existing protocols)"
+    $ECHO "  -b <timefmt>    : Schedule SPARTA to start at the specified time"
+    $ECHO "  -e <timefmt>    : Schedule SPARTA to stop at the specified time"
     $ECHO "  -p <zpoolname>  : Monitor the given ZFS pool(s)"
     $ECHO "  -u [ yes | no ] : Enable or disable the automatic update feature"
     $ECHO "  -P <protocol>   : Enable *only* the given protocol(s) nfs iscsi cifs stmf or a combination"
@@ -208,6 +211,17 @@ function help
     $ECHO ""
     $ECHO "  -v              : display the version."
     $ECHO "  -help | -h | -? : display this help page.\n"
+    $ECHO ""
+    $ECHO "NOTES:"
+    $ECHO "  For scheduled start/stop activity the <timefmt> is the same as used by the"
+    $ECHO "  at(1) shell command.  Either review https://illumos.org/man/1/at or use"
+    $ECHO "  $ man at"
+    $ECHO ""
+    $ECHO "  Time format examples:"
+    $ECHO "  now + 5 hours      : Will schedule SPARTA in 5 hours time from now"
+    $ECHO "  21:00              : Will schedule SPARTA at 9pm"
+    $ECHO "  0815am Sep 30      : Scheduled SPARTA for 08:15am on the 30th September"
+    $ECHO ""
 
     $ECHO "Caveats:\n"
     $ECHO "Running\n-------"
@@ -220,11 +234,6 @@ function help
     $ECHO "  enabled to minimise the impact.\n"
     $ECHO "  You are STRONGLY advised to monitor the space used by $LOG_DIR and stop the"
     $ECHO "  dtrace scripts, if space is being consumed too quickly.\n"
-    $ECHO "Progress and pausing\n--------------------"
-    $ECHO "  During collection you'll see dots (.) to indicate progress is being made and"
-    $ECHO "  also a spinning cursor whilst data is being sampled.  When some processing is"
-    $ECHO "  taking place you'll see the cursor change to Zzz to indicate this, before it"
-    $ECHO "  changes back to a spinning cursor."
     $ECHO ""
 }
 
@@ -235,6 +244,25 @@ function help
 #
 function script_status
 {
+    ATJOBS=$(at -l | wc -l)
+    if [ $ATJOBS -gt 0 ]; then
+        $ECHO "Scheduled SPARTA activity:"
+        for startjob in $(grep -l 'sparta.*start' /var/spool/cron/atjobs/*.a)
+        do
+            atjob=$(basename $startjob)
+            STIME=$(at -l $atjob | sed -e "s/$atjob//g")
+            $ECHO "Start: $STIME ($atjob)"
+        done
+        for stopjob in $(grep -l 'sparta.*stop' /var/spool/cron/atjobs/*.a)
+        do
+            atjob=$(basename $stopjob)
+            STIME=$(at -l $atjob | sed -e "s/$atjob//g")
+            $ECHO "Stop : $STIME ($atjob)"
+        done
+    fi
+
+    $ECHO ""
+    $ECHO "Running processes:"
     pgrep -fl 'dtrace .* [/perflogs|nfssvrtop|cifssvrtop|iscsisvrtop|metaslab|msload_zvol]'
     pgrep -fl 'perflogs/scripts/launchers'
     pgrep -fl $ARCSTAT_PL
@@ -250,6 +278,7 @@ function script_status
     pgrep -fl "$NICSTAT"
     pgrep -fl "$NFSSTAT $NFSSTAT_OPTS"
     pgrep -fl "watch_cpu.pl"
+
 }
 
 
@@ -296,6 +325,29 @@ function script_kill
     fi
 }
  
+
+#
+# Start SPARTA at a specified time via the use of the at sub-system
+#
+function schedule_sparta_start
+{
+    $ECHO "Scheduling SPARTA to start at: $*"
+    at -s $* << EOF
+/perflogs/scripts/sparta.sh -u no start
+EOF
+}
+
+
+#
+# Stop SPARTA at a specified time via the use of the at sub-system
+function schedule_sparta_stop
+{
+    $ECHO "Scheduling SPARTA to stop at: $*"
+    at -s $* << EOF
+/perflogs/scripts/sparta.sh -u no stop
+EOF
+}
+
 
 #
 # Format flags used by print_to_log and callers
@@ -648,12 +700,24 @@ function prune_logs()
 #
 subcommand="usage"
 
-while getopts ChIi:NP:Su:vp:? argopt
+while getopts b:Ce:hIi:NP:r:Su:vp:? argopt
 do
 	case $argopt in
+        b)      # Begin time for a scheduled SPARTA startup
+    	        $ECHO "Scheduling SPARTA to start at: $OPTARG"
+                schedule_sparta_start $OPTARG > /dev/null 2>&1
+                exit 0
+                ;;
+
 	C)      # Enable CIFS scripts
 		TRACE_CIFS="y"
 		;;
+
+        e)      # End time for a scheduled SPARTA stop
+    	        $ECHO "Scheduling SPARTA to stop at: $OPTARG"
+                schedule_sparta_stop $OPTARG > /dev/null 2>&1
+                exit 0
+                ;;
 
 	I)      # Enable iSCSI scripts
 		TRACE_ISCSI="y"
@@ -700,6 +764,11 @@ do
 		done
 		unset IFS
 		;;
+
+        r)      # Remove a specified scheduled SPARTA (at) job
+                at -r $OPTARG
+                exit 0
+                ;;
 
 	S) 	# Enable STMF scripts
 		# No scripts exist to date, to be enhanced at a later stage
