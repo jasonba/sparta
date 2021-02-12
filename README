@@ -40,8 +40,7 @@ NFS, CIFS or iSCSI monitoring thus:
 
    sparta.sh -N	start : Enable NFS scripts
    sparta.sh -C start : Enable CIFS scripts
-   sparta.sh -I start : Enable iSCSI scripts
-   sparta.sh -S start : Enable STMF (COMSTAR) scripts
+   sparta.sh -I start : Enable iSCSI scripts 
         
 *** NOTE ***
   These will be in *addition* to any pre-configured protocol that may have been
@@ -64,7 +63,7 @@ There are additional switches that may be supplied to sparta.sh thus:
 			# sparta.sh -p vmachines,datstore
 
   -P <protocol_list>	: Enable explicit protocol tools for the given list
-		 	  of protcols (cifs, iscsi, nfs or stmf), separated by
+		 	  of protcols (cifs, iscsi or nfs), separated by
 			  commas, eg:
 
 			# sparta.sh -P nfs,cifs
@@ -72,6 +71,30 @@ There are additional switches that may be supplied to sparta.sh thus:
 			  Specifying the protocol list this way will disable
 			  all non-specified protocols, regardless of whether
 		          they have been set by the installation process.
+
+The SPARTA help function also gives more details:
+
+The following are valid optional arguments:
+
+  -C              : Enable CIFS data collection (in addition to existing protocols)
+  -I              : Enable iSCSI data collection [stmf/iscsi] (in addition to existing protocols)
+  -N              : Enable NFS data collection (in addition to existing protocols)
+  -b <timefmt>    : Schedule SPARTA to start at the specified time
+  -e <timefmt>    : Schedule SPARTA to stop at the specified time
+  -p <zpoolname>  : Monitor the given ZFS pool(s)
+  -r <atjob>      : Remove a scheduled SPARTA job
+  -u [ yes | no ] : Enable or disable the automatic update feature
+  -P <protocol>   : Enable *only* the given protocol(s) nfs iscsi cifs stmf or a combination
+                    of multiple protocols, eg: -P nfs,cifs
+                    Also takes the options all or none to switch on all protocols, or collect none
+                    Input list should be comma separated
+  -S <protocol>   : Set protocols to monitor in configuration file
+                    Uses the same format as the -P switch
+  -i <days>       : Specify the number of days (greater than) for pruning sample data
+                    (only works with the 'prune' command)
+
+  -v              : display the version.
+  -help | -h | -? : display this help page.
 
 
 Automatic Updates

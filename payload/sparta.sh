@@ -3,11 +3,12 @@
 #
 # Program	: sparta.sh
 # Author	: Jason.Banham@Nexenta.COM
-# Date		: 2013-02-04 - 2020-11-12
-# Version	: 0.89
+# Date		: 2013-02-04 - 2021-01-21
+# Version	: 0.91
 # Usage		: sparta.sh [ -h | -help | start | status | stop | tarball ]
 # Purpose	: Gather performance statistics for a NexentaStor appliance
-# Legal		: Copyright 2013, 2014, 2015, 2016, 2017, 2018, 2019 and 2020 Nexenta Systems, Inc. 
+# Legal		: Copyright 2013, 2014, 2015, 2016, 2017, 2018, 2019 Nexenta Systems, Inc. 
+#                 Copyright 2020 and 2021, Nexenta by DDN
 #
 # History	: 0.01 - Initial version
 #		  0.02 - Added DNLC lookup and prstat functions
@@ -124,7 +125,17 @@
 #                 0.87 - Added the Illumos txg_full.d script to give deeper insight into ZFS TXG processing
 #                 0.88 - Disabled powertop collection in sparta.config.  Whilst this works on a variety of lab machines
 #                        it turns out in the customer world, powertop spews kstat errors an awful lot.
-#                 0.89 - Added a feature to allow SPARTA to scheduled to start or stop at specific times
+#                 0.89 - Added a feature to allow SPARTA to be scheduled to start or stop at specific times
+#                 0.90 - Simplified iSCSI startup options and re-used -S <protocol> to set protocols into config file
+#                 0.91 - Improved script_status for (non) verbose use case.
+#                        Fixed kstat data collection.
+#                        Collects VLAN kstat information pertinent to NEX-22907
+#                        Collects NEF configuration, useful to check on which profile is enabled
+#                        Fixed the Delphix ZFS TXG full script which had not been running
+#                        Collects the spa_obj_mtx_sz tunable and the /etc/system.d directory contents
+#                        Added iscsisnoop.d and sbd_lu_rw_mb.d dtrace scripts for more iSCSI data
+#			 Tuned the metaslab MSLOAD_TIME value down to 20ms from 50ms - this may be a moving target
+#                        until a happy median is found
 #
 
 # 
@@ -168,7 +179,7 @@ fi
 #
 function usage
 {
-    $ECHO "Usage: `basename $0` [-h] [-b <begin_time>] [-e <end_time>] [-i <days>]  [-C|-I|-N|-S] [-p zpoolname] -u [ yes | no ] [-P {protocol,protocol... | all | none} ] { start | stop | status | tarball | version | space | prune | zap }\n"
+    $ECHO "Usage: `basename $0` [-h] [-b <begin_time>] [-e <end_time>] [-i <days>]  [-C|-I|-N] [-p zpoolname] [-r <atjob>] -u [ yes | no ] [-P|-S] {protocol,protocol... | all | none} ] { start | stop | status | tarball | version | space | prune | zap }\n"
 }
 
 #
@@ -196,16 +207,19 @@ function help
     $ECHO ""
     $ECHO "The following are valid optional arguments:\n"
     $ECHO "  -C              : Enable CIFS data collection (in addition to existing protocols)"
-    $ECHO "  -I              : Enable iSCSI data collection (in addition to existing protocols)"
+    $ECHO "  -I              : Enable iSCSI data collection [stmf/iscsi] (in addition to existing protocols)"
     $ECHO "  -N              : Enable NFS data collection (in addition to existing protocols)"
-    $ECHO "  -S              : Enable STMF (COMSTAR) data collection (in addition to existing protocols)"
     $ECHO "  -b <timefmt>    : Schedule SPARTA to start at the specified time"
     $ECHO "  -e <timefmt>    : Schedule SPARTA to stop at the specified time"
     $ECHO "  -p <zpoolname>  : Monitor the given ZFS pool(s)"
+    $ECHO "  -r <atjob>      : Remove a scheduled SPARTA job"
     $ECHO "  -u [ yes | no ] : Enable or disable the automatic update feature"
     $ECHO "  -P <protocol>   : Enable *only* the given protocol(s) nfs iscsi cifs stmf or a combination"
     $ECHO "                    of multiple protocols, eg: -P nfs,cifs"
     $ECHO "                    Also takes the options all or none to switch on all protocols, or collect none"
+    $ECHO "                    Input list should be comma separated"
+    $ECHO "  -S <protocol>   : Set protocols to monitor in configuration file"
+    $ECHO "                    Uses the same format as the -P switch"
     $ECHO "  -i <days>       : Specify the number of days (greater than) for pruning sample data"
     $ECHO "                    (only works with the 'prune' command)"
     $ECHO ""
@@ -241,29 +255,37 @@ function help
 #
 # Display a status of the scripts we're interested in / have invoked
 # this includes dtrace and other scripts
+# 2021-02-02 : Tweaked function to allow a verbose mode, which is what you want to see if
+#              you're running sparta.sh status
+#              Where this is used during script shutdown, the verbose output was being
+#              counted as possible active scripts, ie: a red herring
+#              We can now pass in the 'verbose' keyword as the first argument to get the
+#              useful status information and keep quiet when we're just counting
 #
 function script_status
 {
-    ATJOBS=$(at -l | wc -l)
-    if [ $ATJOBS -gt 0 ]; then
-        $ECHO "Scheduled SPARTA activity:"
-        for startjob in $(grep -l 'sparta.*start' /var/spool/cron/atjobs/*.a)
-        do
-            atjob=$(basename $startjob)
-            STIME=$(at -l $atjob | sed -e "s/$atjob//g")
-            $ECHO "Start: $STIME ($atjob)"
-        done
-        for stopjob in $(grep -l 'sparta.*stop' /var/spool/cron/atjobs/*.a)
-        do
-            atjob=$(basename $stopjob)
-            STIME=$(at -l $atjob | sed -e "s/$atjob//g")
-            $ECHO "Stop : $STIME ($atjob)"
-        done
-    fi
+    if [ "$1" == "verbose" ]; then
+        ATJOBS=$(at -l | wc -l)
+        if [ $ATJOBS -gt 0 ]; then
+            $ECHO "Scheduled SPARTA activity:"
+            for startjob in $(grep -l 'sparta.*start' /var/spool/cron/atjobs/*.a)
+            do
+                atjob=$(basename $startjob)
+                STIME=$(at -l $atjob | sed -e "s/$atjob//g")
+                $ECHO "Start: $STIME ($atjob)"
+            done
+            for stopjob in $(grep -l 'sparta.*stop' /var/spool/cron/atjobs/*.a)
+            do
+                atjob=$(basename $stopjob)
+                STIME=$(at -l $atjob | sed -e "s/$atjob//g")
+                $ECHO "Stop : $STIME ($atjob)"
+            done
+        fi
 
-    $ECHO ""
-    $ECHO "Running processes:"
-    pgrep -fl 'dtrace .* [/perflogs|nfssvrtop|cifssvrtop|iscsisvrtop|metaslab|msload_zvol]'
+        $ECHO ""
+        $ECHO "Running processes:"
+    fi
+    pgrep -fl 'dtrace .* [/perflogs|nfssvrtop|cifssvrtop|iscsisvrtop|metaslab|msload_zvol|iscsisnoop|sbd_lu_rw_mb]'
     pgrep -fl 'perflogs/scripts/launchers'
     pgrep -fl $ARCSTAT_PL
     pgrep -fl $LOCKSTAT_SPARTA
@@ -278,7 +300,6 @@ function script_status
     pgrep -fl "$NICSTAT"
     pgrep -fl "$NFSSTAT $NFSSTAT_OPTS"
     pgrep -fl "watch_cpu.pl"
-
 }
 
 
@@ -700,13 +721,13 @@ function prune_logs()
 #
 subcommand="usage"
 
-while getopts b:Ce:hIi:NP:r:Su:vp:? argopt
+while getopts b:Ce:hIi:NP:r:S:u:vp:? argopt
 do
 	case $argopt in
         b)      # Begin time for a scheduled SPARTA startup
     	        $ECHO "Scheduling SPARTA to start at: $OPTARG"
                 schedule_sparta_start $OPTARG > /dev/null 2>&1
-                exit 0
+                SCHEDULE_SET="y"
                 ;;
 
 	C)      # Enable CIFS scripts
@@ -716,11 +737,12 @@ do
         e)      # End time for a scheduled SPARTA stop
     	        $ECHO "Scheduling SPARTA to stop at: $OPTARG"
                 schedule_sparta_stop $OPTARG > /dev/null 2>&1
-                exit 0
+                SCHEDULE_SET="y"
                 ;;
 
 	I)      # Enable iSCSI scripts
 		TRACE_ISCSI="y"
+                TRACE_STMF="y"
 		;;
 
 	i)	# Get prune interval
@@ -745,10 +767,9 @@ do
 			cifs  ) TRACE_CIFS="y"
 				;;
 			iscsi ) TRACE_ISCSI="y"
+                                TRACE_STMF="y"
 				;;
 			nfs   ) TRACE_NFS="y"
-				;;
-			stmf  ) TRACE_STMF="y"
 				;;
 			all   ) TRACE_CIFS="y"
 				TRACE_ISCSI="y"
@@ -766,13 +787,50 @@ do
 		;;
 
         r)      # Remove a specified scheduled SPARTA (at) job
+                $ECHO "Removing job $OPTARG : \c"
                 at -r $OPTARG
-                exit 0
+                if [ $? -eq 0 ]; then
+		    $ECHO "Success"
+                    exit 0
+                else
+		    $ECHO "Failed"
+		    exit 1
+	        fi
                 ;;
 
-	S) 	# Enable STMF scripts
-		# No scripts exist to date, to be enhanced at a later stage
-		TRACE_STMF="y"
+	S)	# Set services to monitor into configation file
+		TRACE_CIFS="n"
+		TRACE_ISCSI="n"
+		TRACE_NFS="n"
+		TRACE_STMF="n"
+
+		IFS=", 	"
+		for protocol in $OPTARG
+		do
+		    case $protocol in
+			cifs  ) TRACE_CIFS="y"
+				;;
+			iscsi ) TRACE_ISCSI="y"
+                                TRACE_STMF="y"
+				;;
+			nfs   ) TRACE_NFS="y"
+				;;
+			all   ) TRACE_CIFS="y"
+				TRACE_ISCSI="y"
+				TRACE_NFS="y"
+				TRACE_STMF="y"
+				;;
+			none  ) TRACE_CIFS="n"
+				TRACE_ISCSI="n"
+				TRACE_NFS="n"
+				TRACE_STMF="n"
+				;;
+		    esac
+		done
+		unset IFS
+
+	        $ECHO "TRACE_NFS=${TRACE_NFS}\nTRACE_CIFS=${TRACE_CIFS}\nTRACE_ISCSI=${TRACE_ISCSI}\nTRACE_STMF=${TRACE_STMF}" > $LOG_CONFIG/.services_to_monitor
+                exit 0
 		;;
 
 	p)      ZPOOL_NAME=$OPTARG
@@ -790,6 +848,13 @@ done
 
 shift $((OPTIND-1))
 subcommand="$1"
+
+#
+# If a schedule is set, then exit at this point
+#
+if [ $SCHEDULE_SET == "y" ]; then
+    exit 0
+fi
 
 #
 # Check for a supplied command and act appropriately
@@ -830,7 +895,7 @@ case "$subcommand" in
     status )
 	$ECHO "Monitoring zpool : $ZPOOL_NAME"
 	$ECHO "Checking status of dtrace scripts ..."
-	script_status
+	script_status verbose
 	$ECHO ""
 	exit 0
 	;;
@@ -1143,6 +1208,15 @@ function gather_threads_and_stacks
     $MDB -ke "$STACKS_CMD" >> $LOG_DIR/samples/stacks.out
 }
 
+function gather_kstat_info
+{
+    print_to_log "  Collecting kstat information" $SPARTA_LOG $FF_DATE
+    $DATE +%Y-%m-%d_%H:%M:%S > $LOG_DIR/samples/kstat-p.out
+    $ECHO "-------------------" >> $LOG_DIR/samples/kstat-p.out
+    $KSTAT $KSTAT_OPTS >> $LOG_DIR/samples/kstat-p.out 2>&1
+}
+    
+
 ### Network specific tool section
 
 function gather_ifconfig
@@ -1199,6 +1273,20 @@ function launch_nicstat
 	    print_to_log "  nicstat UDP monitoring was already running as PID $NICSTAT_PID" $SPARTA_LOG $FF_DATE
 	fi
     fi
+}
+
+function launch_vlan_kstat
+{
+    print_to_log "  Collecting kstat VLAN information" $SPARTA_LOG $FF_DATE
+    for VLAN in $($DLADM show-vlan -p -o link)
+    do
+        $PGREP -fl "$KSTAT -Td -p ${VLAN}::mac_rx_swlane0:rxsdrops" > /dev/null 2>&1
+	if [ $? -ne 0 ]; then
+            $DATE +%Y-%m-%d_%H:%M:%S > $LOG_DIR/samples/vlan-${VLAN}.out
+            $ECHO "-------------------" >> $LOG_DIR/samples/vlan-${VLAN}.out
+            $KSTAT -Td -p ${VLAN}::mac_rx_swlane0:rxsdrops $VLAN_KSTAT_OPTS >> $LOG_DIR/samples/vlan-${VLAN}.out &
+        fi
+    done
 }
 
 
@@ -1260,7 +1348,7 @@ function launch_openzfs_txg_full
     IFS=", 	"
     for poolname in $ZPOOL_NAME
     do
-        PGREP_STRING="$TXG_FULL $poolname"
+        PGREP_STRING="$OPENZFS_TXG_FULL $poolname"
         OPENZFS_TXG_FULL_PID="`pgrep -fl "$PGREP_STRING" | awk '{print $1}'`"
         if [ "x$OPENZFS_TXG_FULL_PID" == "x" ]; then
             $OPENZFS_TXG_FULL $poolname | $ROTATELOGS $LOG_DIR/samples/zfstxg_full_${poolname}.out.%Y-%m-%d_%H_%M $LOG_ROTATE_TIME 2>&1 &
@@ -1689,8 +1777,31 @@ function launch_iscsitop
     fi
 }
 
+function launch_iscsisnoop
+{
+    ISCSI_SNOOP_PID=$(pgrep -fl 'dtrace .* iscsisnoop' | awk '{print $1}')
+    if [ "x$ISCSI_SNOOP_PID" == "x" ]; then
+        $ISCSISNOOP | $ROTATELOGS $LOG_DIR/samples/iscsisnoop.out.%Y-%m-%d_%H_%M $LOG_ROTATE_TIME &
+	print_to_log "Started iSCSI snoop monitoring" $SPARTA_LOG $FF_DATE
+    else
+        print_to_log "  iSCSI snoop script already running as PID $ISCSI_SNOOP_PID" $SPARTA_LOG $FF_DATE
+    fi
+}
+
 
 ### COMSTAR/STMF/SBD specific scripts defined here
+
+function launch_sbd_lu_rw
+{
+    PGREP_STRING="dtrace .*$SBD_LU_RW"
+    SBD_LU_RW_PID="$(pgrep -fl "$PGREP_STRING" | awk '{print $1}')"
+    if [ "x$SBD_LU_RW_PID" == "x" ]; then
+	$SBD_LU_RW | $ROTATELOGS $LOG_DIR/samples/sbd_lu_rw.out.%Y-%m-%d_%H_%M $LOG_ROTATE_TIME &
+	print_to_log "  Started sbd_lu_rw monitoring" $SPARTA_LOG $FF_DATE
+    else    
+	print_to_log "  sbd_lu_rw monitoring already running as PID $SBD_LU_RW_PID" $SPARTA_LOG $FF_DATE
+    fi
+}
 
 function launch_sbd_zvol_unmap
 {
@@ -1798,6 +1909,15 @@ function gather_pkg_info
 }
 
 
+### NEF (NexentaStor 5.x CLI) specific stuff
+
+function gather_nef_config
+{
+    case $NEXENTASTOR_MAJ_VER in
+        5) $NEFCLI_CONFIG_CMD list > $LOG_DIR/nefcli.config.out 2>&1
+           ;;
+    esac
+}
 
 
 $ECHO "Nexenta Performance gathering script ($SPARTA_VER)"
@@ -1913,6 +2033,10 @@ if [ ! -d $LOG_DIR/mdb ]; then
     $MKDIR $LOG_DIR/mdb
 fi
 
+if [ ! -d $LOG_KERNEL_TUNABLES ]; then
+    $MKDIR $LOG_KERNEL_TUNABLES
+fi
+
 
 #
 # Let's check to see if we should purge/zap some data before collecting new data
@@ -1954,7 +2078,8 @@ print_to_log "Collecting configuration files first" $SPARTA_LOG $FF_DATE
 for config_file in ${CONFIG_FILE_LIST}
 do
     if [ -r $config_file ]; then
-        $CP $config_file $LOG_DIR/
+#        $CP $config_file $LOG_DIR/
+        ($FIND $config_file -print | $CPIO -pdum $LOG_KERNEL_TUNABLES) > /dev/null 2>&1
     else
 	print_to_log "  missing file - $config_file" $SPARTA_LOG
     fi
@@ -1975,9 +2100,12 @@ do
     fi
 done
 
-# Get information on installed packages
 
+# Get information on installed packages
 gather_pkg_info
+
+# Get the NEF configuration
+gather_nef_config
 
 $ECHO "done"
 

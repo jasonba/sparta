@@ -94,7 +94,7 @@ SPARTA_TEMPLATE=$LOG_CONFIG/sparta.config.template
 #
 # Scripts and files to install
 #
-SCRIPTS="arc_adjust_ns4.v2.d arc_adjust_ns5.d arc_adjust.v2.d arc_evict.d arc_meta.sh arcstat_ns5.pl arcstat.pl busy_cpus.d cifs_taskq_watch.sh cifs_threads.sh cifssvrtop cifssvrtop.v4 cpu-grabit.sh delay_mintime.d delayed_writes.d dirty.d dnlc_lookups.d duration.d flame_stacks.sh fsstat.sh hotkernel.priv iscsirwlat.d iscsisvrtop kmem_reap_100ms_ns.d kmem_reap_100ms.d kmem_reap_100ms_5x.d large_delete.d lockstat_sparta.sh lockstat_sparta_one.sh metaslab.sh msload.d msload_zvol.d nfsio_handsoff.d nfsio_onehost.d nfsio.d nfsrwtime.d nfssrvutil.d nfssvrtop nicstat openzfs_txg.d rwlatency.d sbd_zvol_unmap.d sparta_shield.sh sparta.sh stmf_sbd_unmap.d stmf_task_time.d stmf_threads.d tcp_input.d txg_monitor.v3.d use_slog_agg_debug.d watch_cpu.pl zil_commit_time.d zil_lwb_write_start.d zil_commit_watch.d zil_commit_writer.d zil_stat.d zil_stat_520.d"
+SCRIPTS="arc_adjust_ns4.v2.d arc_adjust_ns5.d arc_adjust.v2.d arc_evict.d arc_meta.sh arcstat_ns5.pl arcstat.pl busy_cpus.d cifs_taskq_watch.sh cifs_threads.sh cifssvrtop cifssvrtop.v4 cpu-grabit.sh delay_mintime.d delayed_writes.d dirty.d dnlc_lookups.d duration.d flame_stacks.sh fsstat.sh hotkernel.priv iscsirwlat.d iscsisnoop.d iscsisvrtop kmem_reap_100ms_ns.d kmem_reap_100ms.d kmem_reap_100ms_5x.d large_delete.d lockstat_sparta.sh lockstat_sparta_one.sh metaslab.sh msload.d msload_zvol.d nfsio_handsoff.d nfsio_onehost.d nfsio.d nfsrwtime.d nfssrvutil.d nfssvrtop nicstat openzfs_txg.d rwlatency.d sbd_lu_rw_mb.d sbd_zvol_unmap.d sparta_shield.sh sparta.sh stmf_sbd_unmap.d stmf_task_time.d stmf_threads.d tcp_input.d txg_full.d txg_monitor.v3.d use_slog_agg_debug.d watch_cpu.pl zil_commit_time.d zil_lwb_write_start.d zil_commit_watch.d zil_commit_writer.d zil_stat.d zil_stat_520.d"
 BINARIES="rotatelogs nsver-check.pl pv"
 LAUNCHERS="arc_mdb.sh arc_prefetch.sh hotkernel.sh flame_stacks.sh kmastat.sh kmemslabs.sh memstat.sh nfsstat.sh stmf_workers.sh"
 CONFIG_FILES="sparta.config"
@@ -189,7 +189,6 @@ $ECHO "(Any other letter to skip this section)\n"
 $ECHO "\t(N)FS"
 $ECHO "\t(C)IFS"
 $ECHO "\t(I)SCSI"
-$ECHO "\t(S)TMF"
 
 $ECHO "\nEnter the initial letter of the service you wish to monitor: \c"
 
@@ -213,10 +212,8 @@ do
             $ECHO "CIFS \c"
 	    ;;
         i ) TRACE_ISCSI=y
+            TRACE_STMF=y
             $ECHO "iSCSI \c"
-	    ;;
-        s ) TRACE_STMF=y
-            $ECHO "STMF \c"
 	    ;;
         * ) SERVICE_SED_STRING="willrobinson"
 	    ;;
