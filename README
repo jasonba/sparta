@@ -159,7 +159,7 @@ Alternatively you can run:
 
 and this will generate a tarball.
 Once a tarball has been generated that captures a performance problem, please
-upload this to the Nexenta FTP server.
+upload this to the Nexenta support server.
 
 The URL for this is:
 
@@ -196,7 +196,7 @@ Creating tarball ... done
 Compressing tarball ... done
 
 A snapshot of the currently collected data has been collected.
-Please upload /var/tmp/nexenta_perf_data-2013-10-23_16:58:42.tar.gz to ftp.nexenta.com:/upload/<CASE_REF>
+Please upload /var/tmp/nexenta_perf_data-2013-10-23_16:58:42.tar.gz to the Nexenta Support Portal 
 where <CASE_REF> should be substituted for the case reference number
 of the performance issue is being investigated.
 

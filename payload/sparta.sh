@@ -3,8 +3,8 @@
 #
 # Program	: sparta.sh
 # Author	: Jason.Banham@Nexenta.COM
-# Date		: 2013-02-04 - 2021-01-21
-# Version	: 0.91
+# Date		: 2013-02-04 - 2021-03-24
+# Version	: 0.93
 # Usage		: sparta.sh [ -h | -help | start | status | stop | tarball ]
 # Purpose	: Gather performance statistics for a NexentaStor appliance
 # Legal		: Copyright 2013, 2014, 2015, 2016, 2017, 2018, 2019 Nexenta Systems, Inc. 
@@ -136,6 +136,9 @@
 #                        Added iscsisnoop.d and sbd_lu_rw_mb.d dtrace scripts for more iSCSI data
 #			 Tuned the metaslab MSLOAD_TIME value down to 20ms from 50ms - this may be a moving target
 #                        until a happy median is found
+#                 0.92 - Looks like smbstat -r no longer dumps a core file from 5.3.0-CP3 onwards so have put checks in
+#                        place to automatically enable this again, if you're on at least this version.
+#                 0.93 - Adjusted the FTP server details / URL for uploading the tarball
 #
 
 # 
@@ -655,9 +658,19 @@ function generate_tarball
 	#    fi
 
     $ECHO "\nA snapshot of the currently collected data has been collected."
-    $ECHO "Please upload ${PERF_TARBALL}.gz to $FTP_SERVER:/upload/<CASE_REF>"
+    $ECHO "Please upload ${PERF_TARBALL}.gz to the Support Portal"
+    $ECHO "eg:"
+    $ECHO "curl -T ${PERF_TARBALL}.gz ${FTP_SERVER}/"$(basename ${PERF_TARBALL}.gz)" --ftp-create-dirs\n"
     $ECHO "where <CASE_REF> should be substituted for the case reference number"
     $ECHO "of the performance issue is being investigated.\n"
+    $ECHO "The UUID can be obtained by using one of the following commands:"
+    $ECHO ""
+    $ECHO "NexentaStor 4.x\n"
+    $ECHO "  nmc@ns4-jbod:/$ show appliance license"
+    $ECHO "\n... which will be the value see for the 'Machine Signature'"
+    $ECHO ""
+    $ECHO "NexentaStor 5.x\n"
+    $ECHO "  CLI@sparta> config get -O basic value system.guid\n\n"
 
     $ECHO "Please update your case reference in $CRM_TOOL \nor contact $NEX_SUPPORT_EMAIL if there are additional questions."
 }
