@@ -3,12 +3,12 @@
 #
 # Program	: sparta.sh
 # Author	: Jason.Banham@Nexenta.COM
-# Date		: 2013-02-04 - 2021-03-24
-# Version	: 0.93
+# Date		: 2013-02-04 - 2023-01-19
+# Version	: 0.95
 # Usage		: sparta.sh [ -h | -help | start | status | stop | tarball ]
 # Purpose	: Gather performance statistics for a NexentaStor appliance
 # Legal		: Copyright 2013, 2014, 2015, 2016, 2017, 2018, 2019 Nexenta Systems, Inc. 
-#                 Copyright 2020 and 2021, Nexenta by DDN
+#                 Copyright 2020, 2021, 2022 and 2023 Nexenta by DDN
 #
 # History	: 0.01 - Initial version
 #		  0.02 - Added DNLC lookup and prstat functions
@@ -139,6 +139,8 @@
 #                 0.92 - Looks like smbstat -r no longer dumps a core file from 5.3.0-CP3 onwards so have put checks in
 #                        place to automatically enable this again, if you're on at least this version.
 #                 0.93 - Adjusted the FTP server details / URL for uploading the tarball
+#                 0.94 - Minor tweak to nfsstat launcher to use rotatelog binary
+#                 0.95 - Some fixes for log rotation (in 5.5) and patch detection issues
 #
 
 # 
@@ -544,11 +546,11 @@ function calc_space()
 #
 # Check that we're being passed in an integer
 #
-function is_integer()
-{   
-    num=$(printf '%s' "$1" | sed "s/^0*\([1-9]\)/\1/; s/'/^/")
-    test "$num" && printf '%d' "$num" >/dev/null 2>&1
-}
+#function is_integer()
+#{   
+#    num=$(printf '%s' "$1" | sed "s/^0*\([1-9]\)/\1/; s/'/^/")
+#    test "$num" && printf '%d' "$num" >/dev/null 2>&1
+#}
 
 #
 # Check to see if a scrub is already in progress on any of the zpools
@@ -1942,30 +1944,41 @@ $ECHO "====================================\n"
 #
 
 if [ $NEXENTASTOR_MAJ_VER == "5" ]; then
-    pkg info -q pkg:/library/apr-util
-    if [ $? -ne 0 ]; then
-        $ECHO "Package pkg:/library/apr-util is missing, which will prevent log files from rotating."
-        $ECHO "Failure to install this package means that SPARTA will not run.\n"
-        $ECHO "Would you like me to install the missing package? (y|n) \c"
-        read INSTALL_ME
-        INSTALL_ME="`$ECHO $INSTALL_ME | $TR '[:upper:]' '[:lower:]'`"
-        if [ "$INSTALL_ME" == "y" ]; then
-            pkg install -q pkg:/library/apr-util
-            ERR_CODE=$?
-            if [ $ERR_CODE -ne 0 ]; then
-                $ECHO "Unable to install that package, so I must exit."
-                $ECHO "Please seek assistance from a Nexenta support engineer, advising them that SPARTA"
-                $ECHO "was unable to install pkg:/library/apr-util with error code $ERR_CODE"
-                exit 1
+    if [ $OS_MINOR -lt 5 ]; then
+        pkg info -q pkg:/library/apr-util
+        if [ $? -ne 0 ]; then
+            $ECHO "Package pkg:/library/apr-util is missing, which will prevent log files from rotating."
+            $ECHO "Failure to install this package means that SPARTA will not run.\n"
+            $ECHO "Would you like me to install the missing package? (y|n) \c"
+            read INSTALL_ME
+            INSTALL_ME="`$ECHO $INSTALL_ME | $TR '[:upper:]' '[:lower:]'`"
+            if [ "$INSTALL_ME" == "y" ]; then
+                pkg install -q pkg:/library/apr-util
+                ERR_CODE=$?
+                if [ $ERR_CODE -ne 0 ]; then
+                    $ECHO "Unable to install that package, so I must exit."
+                    $ECHO "Please seek assistance from a Nexenta support engineer, advising them that SPARTA"
+                    $ECHO "was unable to install pkg:/library/apr-util with error code $ERR_CODE"
+                    exit 1
+                else
+                    $ECHO "Successfully installed."
+                fi
             else
-                $ECHO "Successfully installed."
+                $ECHO "Must exit as SPARTA will not run without this package."
+                exit 1
             fi
         else
-            $ECHO "Must exit as SPARTA will not run without this package."
-            exit 1
+            $ECHO "already installed."
         fi
     else
-        $ECHO "already installed."
+        $ECHO "The pkg:/library/apr-util is missing and will not install"
+        LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$LOG_LIB $LOG_BIN/rotatelogs -l |& grep -iq fatal
+        if [ $? -eq 0 ]; then
+            $ECHO "Attempted workaround has failed, must exit as SPARTA will not run without this package."
+            exit 1
+        else
+            $ECHO "Will use the workaround"
+        fi 
     fi
 fi
 

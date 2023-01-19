@@ -3,8 +3,8 @@
 #
 # Program	: installer.sh
 # Author	: Jason Banham
-# Date		: 2013-01-04 : 2021-01-15
-# Version	: 0.28
+# Date		: 2013-01-04 : 2023-01-19
+# Version	: 0.29
 # Usage		: installer.sh [<zpool name>]
 # Purpose	: Gather performance statistics for a NexentaStor appliance
 # History	: 0.01 - Initial version
@@ -39,6 +39,7 @@
 #                 0.27 - Created lockstat_sparta_one.sh and added this to the cpu-grabit.sh script
 #                 0.28 - Fixed the service/protocol selection input as this did not work for multiple protocols
 #                        On a side note, I really need to merge iSCSI and STMF as it's just confusing to customers
+#                 0.29 - Added a library directory to workaround missing libapr package
 #
 
 #
@@ -47,6 +48,7 @@
 LOG_DIR=/perflogs
 LOG_CONFIG=${LOG_DIR}/etc
 LOG_BIN=${LOG_DIR}/bin
+LOG_LIB=${LOG_DIR}/lib
 LOG_SCRIPTS=${LOG_DIR}/scripts
 LOG_LAUNCHERS=${LOG_SCRIPTS}/launchers
 LOG_TEMPLATES=${LOG_DIR}/workload_templates
@@ -68,7 +70,14 @@ TR=/usr/bin/tr
 ZFS=/usr/sbin/zfs
 ZPOOL=/usr/sbin/zpool
 
-OS_MAJOR="`uname -v | cut -d':' -f1 | sed -e 's/\..*//g'`"
+#OS_MAJOR="`uname -v | cut -d':' -f1 | sed -e 's/\..*//g'`"
+#
+# Detect which version of NexentaStor we're running on
+# - Presently this should be 3.x, 4.x and 5 Beta
+#
+OS_VERS="`uname -v | cut -d':' -f1`"
+OS_MAJOR="`echo $OS_VERS | sed -e 's/\..*//g'`"
+OS_MINOR="$(echo $OS_VERS | awk -F'.' '{print $2}')"
 
 case $OS_MAJOR in
     NexentaOS_134f )
@@ -94,8 +103,9 @@ SPARTA_TEMPLATE=$LOG_CONFIG/sparta.config.template
 #
 # Scripts and files to install
 #
-SCRIPTS="arc_adjust_ns4.v2.d arc_adjust_ns5.d arc_adjust.v2.d arc_evict.d arc_meta.sh arcstat_ns5.pl arcstat.pl busy_cpus.d cifs_taskq_watch.sh cifs_threads.sh cifssvrtop cifssvrtop.v4 cpu-grabit.sh delay_mintime.d delayed_writes.d dirty.d dnlc_lookups.d duration.d flame_stacks.sh fsstat.sh hotkernel.priv iscsirwlat.d iscsisnoop.d iscsisvrtop kmem_reap_100ms_ns.d kmem_reap_100ms.d kmem_reap_100ms_5x.d large_delete.d lockstat_sparta.sh lockstat_sparta_one.sh metaslab.sh msload.d msload_zvol.d nfsio_handsoff.d nfsio_onehost.d nfsio.d nfsrwtime.d nfssrvutil.d nfssvrtop nicstat openzfs_txg.d rwlatency.d sbd_lu_rw_mb.d sbd_zvol_unmap.d sparta_shield.sh sparta.sh stmf_sbd_unmap.d stmf_task_time.d stmf_threads.d tcp_input.d txg_full.d txg_monitor.v3.d use_slog_agg_debug.d watch_cpu.pl zil_commit_time.d zil_lwb_write_start.d zil_commit_watch.d zil_commit_writer.d zil_stat.d zil_stat_520.d"
+SCRIPTS="arc_adjust_ns4.v2.d arc_adjust_ns5.d arc_adjust.v2.d arc_evict.d arc_meta.sh arcstat_ns5.pl arcstat.pl busy_cpus.d cifs_taskq_watch.sh cifs_threads.sh cifssvrtop cifssvrtop.v4 cpu-grabit.sh delay_mintime.d delayed_writes.d dirty.d dnlc_lookups.d duration.d flame_stacks.sh fsstat.sh hotkernel.priv iscsirwlat.d iscsisnoop.d iscsisvrtop kmem_reap_100ms_ns.d kmem_reap_100ms.d kmem_reap_100ms_5x.d large_delete.d lockstat_sparta.sh lockstat_sparta_one.sh metaslab.sh msload.d msload_zvol.d nfsio_handsoff.d nfsio_onehost.d nfsio.d nfsrwtime.d nfssrvutil.d nfssvrtop nfs_rwsize.d nfs_measure_write.d nicstat openzfs_txg.d rwlatency.d sbd_lu_rw_mb.d sbd_zvol_unmap.d sparta_shield.sh sparta.sh stmf_sbd_unmap.d stmf_task_time.d stmf_threads.d tcp_input.d txg_full.d txg_monitor.v3.d use_slog_agg_debug.d watch_cpu.pl zil_commit_time.d zil_lwb_write_start.d zil_commit_watch.d zil_commit_writer.d zil_stat.d zil_stat_520.d"
 BINARIES="rotatelogs nsver-check.pl pv"
+LIBS="libapr.so.0 libaprutil.so.0"
 LAUNCHERS="arc_mdb.sh arc_prefetch.sh hotkernel.sh flame_stacks.sh kmastat.sh kmemslabs.sh memstat.sh nfsstat.sh stmf_workers.sh"
 CONFIG_FILES="sparta.config"
 APRUTIL_LIB="libapr-util.p5p"
@@ -239,6 +249,9 @@ fi
 if [ ! -d $LOG_BIN ]; then
     mkdir $LOG_BIN
 fi
+if [ ! -d $LOG_LIB ]; then
+    mkdir $LOG_LIB
+fi
 
  
 #
@@ -293,6 +306,14 @@ do
     $COPY payload/$binary $LOG_BIN/
     if [ $? -ne 0 ]; then
 	$ECHO "Failed to install $binary"
+    fi
+done
+
+for library in $LIBS
+do
+    $COPY payload/$library $LOG_LIB
+    if [ $? -ne 0 ]; then
+        $ECHO "Failed to install $library"
     fi
 done
 
@@ -363,55 +384,68 @@ esac
 # NexentaStor 5 GA (5.0.1) ships without the required libraries to run the rotatelogs script
 # It's fairly trivial to install but we need to check, otherwise you get lots of errors
 #
+# ... or it was trivial until the library fell out of 5.5 and will no longer install
+#
 
 if [ "$OS_MAJOR" == "NexentaStor_5" ]; then
-    $ECHO "\nChecking for pkg:/library/apr-util ... \c"
-    pkg info -q pkg:/library/apr-util
-    if [ $? -ne 0 ]; then
-	$ECHO "NOT INSTALLED!"
-	$ECHO "\nWARNING: Package pkg:/library/apr-util is missing, which will prevent log files from rotating."
-	$ECHO "Failure to install this package means that SPARTA will not run.\n"
- 	$ECHO "Would you like me to install the missing package? (y|n) \c"
-	read INSTALL_ME 
-	INSTALL_ME="`$ECHO $INSTALL_ME | $TR '[:upper:]' '[:lower:]'`"
-	if [ "$INSTALL_ME" == "y" ]; then
-	    $ECHO "Does this machine have direct access to the Internet ? (y|n) \c"
-	    read INTERNET_ACCESS
-	    INTERNET_ACCESS="`$ECHO $INTERNET_ACCESS | $TR '[:upper:]' '[:lower:]'`"
-	    if [ "$INTERNET_ACCESS" == "y" ]; then
-	        PKG_COMMAND="pkg install -q pkg:/library/apr-util"
-  		PKG_SOURCE="from remote package server"
-	    else
-		if [ -r /tmp/$APRUTIL_LIB ]; then
-		    PKG_COMMAND="pkg install -q -g file:///tmp/libapr-util.p5p pkg:/library/apr-util"
-		    PKG_SOURCE="from local p5p package"
-		else
-		    $ECHO "Could not locate /tmp/$APRUTIL_LIB"
-		    $ECHO "This should have been bundled with SPARTA in the payload directory, please locate and then manually"
-		    $ECHO "run the following command:\n\n"
-		    $ECHO "pkg install -g file:///<location_of_file>/libapr-util.p5p pkg:/library/apr-util"
-		    $ECHO "\nMust exit now."
-		    exit 1
+    if [ $OS_MINOR -lt 5 ]; then
+        $ECHO "\nChecking for pkg:/library/apr-util ... \c"
+        pkg info -q pkg:/library/apr-util
+        if [ $? -ne 0 ]; then
+    	    $ECHO "NOT INSTALLED!"
+	    $ECHO "\nWARNING: Package pkg:/library/apr-util is missing, which will prevent log files from rotating."
+	    $ECHO "Failure to install this package means that SPARTA will not run.\n"
+ 	    $ECHO "Would you like me to install the missing package? (y|n) \c"
+	    read INSTALL_ME 
+	    INSTALL_ME="`$ECHO $INSTALL_ME | $TR '[:upper:]' '[:lower:]'`"
+	    if [ "$INSTALL_ME" == "y" ]; then
+	        $ECHO "Does this machine have direct access to the Internet ? (y|n) \c"
+	        read INTERNET_ACCESS
+	        INTERNET_ACCESS="`$ECHO $INTERNET_ACCESS | $TR '[:upper:]' '[:lower:]'`"
+	        if [ "$INTERNET_ACCESS" == "y" ]; then
+	            PKG_COMMAND="pkg install -q pkg:/library/apr-util"
+  		    PKG_SOURCE="from remote package server"
+	        else
+		    if [ -r /tmp/$APRUTIL_LIB ]; then
+		        PKG_COMMAND="pkg install -q -g file:///tmp/libapr-util.p5p pkg:/library/apr-util"
+		        PKG_SOURCE="from local p5p package"
+		    else
+		        $ECHO "Could not locate /tmp/$APRUTIL_LIB"
+		        $ECHO "This should have been bundled with SPARTA in the payload directory, please locate and then manually"
+		        $ECHO "run the following command:\n\n"
+		        $ECHO "pkg install -g file:///<location_of_file>/libapr-util.p5p pkg:/library/apr-util"
+		        $ECHO "\nMust exit now."
+		        exit 1
+	            fi
+                fi
+	        $ECHO "Attempting to install missing package $PKG_SOURCE ... \c"
+ 	        $PKG_COMMAND
+	        ERR_CODE=$?
+	        if [ $ERR_CODE -ne 0 ]; then
+		    $ECHO "Error!"
+		    $ECHO "Unable to install that package, so I must exit."
+		    $ECHO "Please seek assistance from a Nexenta support engineer, advising them that SPARTA"
+		    $ECHO "was unable to install pkg:/library/apr-util with error code $ERR_CODE"
+	   	    exit 1
+	        else
+		    $ECHO "Successfully installed."
 	        fi
+            else
+	        $ECHO "Must exit as SPARTA will not run without this package."
+	        exit 1
             fi
-	    $ECHO "Attempting to install missing package $PKG_SOURCE ... \c"
- 	    $PKG_COMMAND
-	    ERR_CODE=$?
-	    if [ $ERR_CODE -ne 0 ]; then
-		$ECHO "Error!"
-		$ECHO "Unable to install that package, so I must exit."
-		$ECHO "Please seek assistance from a Nexenta support engineer, advising them that SPARTA"
-		$ECHO "was unable to install pkg:/library/apr-util with error code $ERR_CODE"
-	   	exit 1
-	    else
-		$ECHO "Successfully installed."
-	    fi
         else
-	    $ECHO "Must exit as SPARTA will not run without this package."
-	    exit 1
+            $ECHO "already installed."
         fi
     else
-        $ECHO "already installed."
+        $ECHO "The pkg:/library/apr-util is missing and will not install"
+        LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$LOG_LIB $LOG_BIN/rotatelogs -l |& grep -iq fatal
+        if [ $? -eq 0 ]; then
+            $ECHO "Attempted workaround has failed, must exit as SPARTA will not run without this package."
+            exit 1
+        else
+            $ECHO "Will use the workaround"
+        fi
     fi
 fi 
 
