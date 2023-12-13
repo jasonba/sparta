@@ -3,8 +3,8 @@
 #
 # Program	: sparta.sh
 # Author	: Jason.Banham@Nexenta.COM
-# Date		: 2013-02-04 - 2023-04-18
-# Version	: 0.96
+# Date		: 2013-02-04 - 2023-11-30
+# Version	: 0.97
 # Usage		: sparta.sh [ -h | -help | start | status | stop | tarball ]
 # Purpose	: Gather performance statistics for a NexentaStor appliance
 # Legal		: Copyright 2013, 2014, 2015, 2016, 2017, 2018, 2019 Nexenta Systems, Inc. 
@@ -142,6 +142,7 @@
 #                 0.94 - Minor tweak to nfsstat launcher to use rotatelog binary
 #                 0.95 - Some fixes for log rotation (in 5.5) and patch detection issues
 #                 0.96 - Disabled kmem_slab data collection as this can sometimes take a long time
+#                 0.97 - Tweak to zil_commit_time.d to prevent invalid addresses
 #
 
 # 
