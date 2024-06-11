@@ -3,12 +3,12 @@
 #
 # Program	: sparta.sh
 # Author	: Jason.Banham@Nexenta.COM
-# Date		: 2013-02-04 - 2023-11-30
-# Version	: 0.97
+# Date		: 2013-02-04 - 2028-05-09
+# Version	: 0.98
 # Usage		: sparta.sh [ -h | -help | start | status | stop | tarball ]
 # Purpose	: Gather performance statistics for a NexentaStor appliance
 # Legal		: Copyright 2013, 2014, 2015, 2016, 2017, 2018, 2019 Nexenta Systems, Inc. 
-#                 Copyright 2020, 2021, 2022 and 2023 Nexenta by DDN
+#                 Copyright 2020, 2021, 2022, 2023 and 2024 Nexenta by DDN
 #
 # History	: 0.01 - Initial version
 #		  0.02 - Added DNLC lookup and prstat functions
@@ -143,6 +143,7 @@
 #                 0.95 - Some fixes for log rotation (in 5.5) and patch detection issues
 #                 0.96 - Disabled kmem_slab data collection as this can sometimes take a long time
 #                 0.97 - Tweak to zil_commit_time.d to prevent invalid addresses
+#                 0.98 - Collect all of the kernel driver config files
 #
 
 # 
@@ -2106,12 +2107,15 @@ print_to_log "Collecting configuration files first" $SPARTA_LOG $FF_DATE
 for config_file in ${CONFIG_FILE_LIST}
 do
     if [ -r $config_file ]; then
-#        $CP $config_file $LOG_DIR/
         ($FIND $config_file -print | $CPIO -pdum $LOG_KERNEL_TUNABLES) > /dev/null 2>&1
     else
 	print_to_log "  missing file - $config_file" $SPARTA_LOG
     fi
 done
+#
+# Grab all of the driver config files 
+#
+($FIND /kernel/drv -name "*.conf" -print | $CPIO -pdum $LOG_KERNEL_TUNABLES) > /dev/null 2>&1
 
 FILE_LIMIT="`expr $MEGABYTE \* 50`"
 for other_file in ${OTHER_FILE_LIST}
